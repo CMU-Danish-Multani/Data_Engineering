@@ -27,10 +27,10 @@ Run these from the repository root with the environment activated:
 
 ```sh
 # Inspect history without a database connection.
-alembic -c src/stock_db/alembic_migration/alembic.ini history
+alembic history
 
 # Create an empty revision when ready to define a schema change.
-alembic -c src/stock_db/alembic_migration/alembic.ini revision -m "describe change"
+alembic revision -m "describe change"
 ```
 
 Add your database details to `src/stock_db/alembic_migration/.env`:
@@ -47,14 +47,12 @@ own copy using the format above. Use
 characters in credentials.
 
 ```sh
-# Preview SQL without connecting to PostgreSQL.
-alembic -c src/stock_db/alembic_migration/alembic.ini upgrade head --sql
 
 # Apply revisions to the configured database.
-alembic -c src/stock_db/alembic_migration/alembic.ini upgrade head
+alembic upgrade head/revision_id
 
 # Show the database's current revision.
-alembic -c src/stock_db/alembic_migration/alembic.ini current
+alembic current
 ```
 
 You can also run `alembic` directly from this directory, where it will discover
