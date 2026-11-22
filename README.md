@@ -42,3 +42,23 @@ source rows and any validation issues in `dev.raw_stock_prices`. Trading dates
 use the exchange time zone. `dev.stock_prices_daily` selects the latest valid
 observation per ticker and date and exposes both close and adjusted close.
 Repeated downloads with unchanged historical values reuse the existing snapshot.
+
+## Institutional holdings (Form 13F)
+
+After applying the Alembic migrations, run `uv run load_13f.py`. The default
+SEC download covers filings submitted June–August 2025. Use `--window` for
+another supported filing window, or add `--archive /path/to/the-same-filename.zip`
+to replay a saved ZIP. The loader uses `SEC_USER_AGENT` and `DATABASE_URL`.
+
+`dev.f13_downloads` keeps the exact ZIP, its source URL, SHA-256 and counts.
+`dev.f13_submission` and `dev.f13_coverpage` preserve filing fields; the
+`dev.f13_infotable` rows cover the six tracked CUSIPs, including both listed
+Alphabet share classes. Source row numbers begin at 1 after each TSV header.
+A repeated load of an identical archive reuses the existing records.
+
+`dev.f13_holdings_as_filed` joins each position to the manager and reporting
+period by filing accession. Filter by `report_date` when comparing periods.
+`ticker` identifies the issuer and `security_ticker` the share class.
+For ordinary share positions select `quantity_type = 'SH' AND put_call IS NULL`.
+This view retains original filings and amendments as separate disclosures.
+Reconcile restatements and additions before summing across filings.
