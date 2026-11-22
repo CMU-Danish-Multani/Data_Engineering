@@ -25,3 +25,20 @@ The second command previews Microsoft quarterly revenue from the newest
 completed Microsoft snapshot. The third writes those rows to PostgreSQL
 `dev.quarterly_revenue`. Omitting `--from-mongo` uses the saved Microsoft
 file as before.
+
+## Daily stock prices
+
+Apply the Alembic migrations, then run the price loader from the repository root:
+
+```bash
+uv run alembic -c src/stock_db/alembic_migration/alembic.ini upgrade head
+uv run load_stock_prices.py --start 2024-07-01 --end 2025-07-01
+```
+
+The end date is exclusive. The loader uses the Yahoo Finance daily chart feed
+for the tickers in `dev.companies`. Each distinct price history retains its
+original response and source URL in `dev.stock_price_downloads`. Inspect the
+source rows and any validation issues in `dev.raw_stock_prices`. Trading dates
+use the exchange time zone. `dev.stock_prices_daily` selects the latest valid
+observation per ticker and date and exposes both close and adjusted close.
+Repeated downloads with unchanged historical values reuse the existing snapshot.
