@@ -62,3 +62,37 @@ period by filing accession. Filter by `report_date` when comparing periods.
 For ordinary share positions select `quantity_type = 'SH' AND put_call IS NULL`.
 This view retains original filings and amendments as separate disclosures.
 Reconcile restatements and additions before summing across filings.
+
+### Compare 13F share positions across quarters
+
+Load the March–May and June–August 2025 SEC filing windows to compare the
+March 31 and June 30 reporting dates. To add the earlier window:
+
+```bash
+uv run load_13f.py --window 01mar2025-31may2025_form13f.zip
+```
+
+After applying Alembic migrations, this query compares Microsoft share counts:
+
+```sql
+SELECT manager_name, previous_shares, reported_shares, change_in_reported_shares
+FROM dev.f13_quarterly_changes
+WHERE report_date = DATE '2025-06-30' AND security_ticker = 'MSFT'
+  AND comparison_status = 'reported in both quarters'
+ORDER BY manager_name;
+```
+
+The view compares consecutive calendar quarter-ends by manager CIK and security
+CUSIP, including Alphabet's two classes separately. It uses public filings in
+the downloaded windows; later amendments can change results. Following the
+[SEC amendment guidance (questions 58b–c)](https://www.sec.gov/rules-regulations/staff-guidance/frequently-asked-questions-about-form-13f),
+the latest full restatement replaces the earlier filings. Subsequent numbered
+new-holdings amendments supplement it (or the original). Inspect
+`dev.f13_filing_review` for each accession's disposition, including notice
+filings, missing baselines, and ambiguous amendment sequences.
+
+`dev.f13_manager_positions` sums as-reported share quantities for each
+resolved manager-quarter and security, excluding put/call and principal-amount
+rows. An absent share disclosure is NULL. The comparison labels one-sided
+disclosures and calculates a share change only when valid counts exist on
+both sides. Changes are in reported units, without split adjustments.
