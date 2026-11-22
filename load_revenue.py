@@ -7,16 +7,16 @@ from dotenv import load_dotenv
 from sqlalchemy import bindparam, create_engine, text
 from sqlalchemy.dialects.postgresql import JSONB
 
-from extract_revenue import fiscal_year_argument, quarterly_revenue
+from extract_revenue import quarterly_revenue, revenue_arguments
 
 
-def load(fiscal_year):
+def load(fiscal_year, from_mongo=False):
     load_dotenv(Path(__file__).resolve().parent / "src/stock_db/alembic_migration/.env")
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise SystemExit("Set DATABASE_URL to the same PostgreSQL URL used by Alembic.")
 
-    rows = quarterly_revenue(fiscal_year)
+    rows = quarterly_revenue(fiscal_year, from_mongo)
     statement = text("""
         INSERT INTO dev.quarterly_revenue AS stored
             (ticker, period_start, period_end, revenue_usd, filing_id, filed_on, source_facts)
@@ -40,4 +40,5 @@ def load(fiscal_year):
 
 
 if __name__ == "__main__":
-    load(fiscal_year_argument())
+    args = revenue_arguments()
+    load(args.fiscal_year, args.from_mongo)

@@ -10,10 +10,11 @@ SOURCE = Path(__file__).resolve().parent / "data/raw/MSFT/companyfacts.json"
 TAG = "RevenueFromContractWithCustomerExcludingAssessedTax"
 
 
-def fiscal_year_argument():
+def revenue_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fiscal-year", type=int, default=2025)
-    return parser.parse_args().fiscal_year
+    parser.add_argument("--from-mongo", action="store_true", help="Read the latest completed SEC snapshot from MongoDB.")
+    return parser.parse_args()
 
 
 def latest_fact(facts, start, end, forms):
@@ -29,17 +30,23 @@ def latest_fact(facts, start, end, forms):
     if len({row["val"] for row in latest}) != 1:
         raise ValueError(f"Conflicting revenue for {start} through {end} filed on {latest_date}")
     row = max(latest, key=lambda item: item["accn"])
-    if type(row["val"]) is not int or row["val"] < 0:
+    value = row["val"]
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError(f"Invalid Microsoft revenue in filing {row['accn']}")
     return {key: row[key] for key in ("start", "end", "filed", "accn", "form", "val")}
 
 
-def quarterly_revenue(fiscal_year):
-    with SOURCE.open() as source:
-        company = json.load(source)
-    if int(company["cik"]) != 789019:
-        raise ValueError("Expected Microsoft's SEC Company Facts response")
-    facts = company["facts"]["us-gaap"][TAG]["units"]["USD"]
+def quarterly_revenue(fiscal_year, from_mongo=False):
+    if from_mongo:
+        from sec_companyfacts import mongo_revenue_facts
+
+        facts = mongo_revenue_facts("MSFT", TAG)
+    else:
+        with SOURCE.open() as source:
+            company = json.load(source)
+        if int(company["cik"]) != 789019:
+            raise ValueError("Expected Microsoft's SEC Company Facts response")
+        facts = company["facts"]["us-gaap"][TAG]["units"]["USD"]
     year_start = date(fiscal_year - 1, 7, 1)
     quarter_starts = [
         year_start, date(fiscal_year - 1, 10, 1), date(fiscal_year, 1, 1),
@@ -71,5 +78,6 @@ def quarterly_revenue(fiscal_year):
 
 
 if __name__ == "__main__":
-    for row in quarterly_revenue(fiscal_year_argument()):
+    args = revenue_arguments()
+    for row in quarterly_revenue(args.fiscal_year, args.from_mongo):
         print(f"MSFT {row['period_start']} to {row['period_end']}: ${row['revenue_usd']:,}")
