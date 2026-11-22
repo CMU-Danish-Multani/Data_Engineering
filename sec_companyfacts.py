@@ -57,7 +57,7 @@ def ingest(db, ticker, cik, url, raw, acquired_at):
     }}, upsert=True)
 
 
-def mongo_revenue_facts(ticker, tag):
+def mongo_revenue_concepts(ticker, tags):
     with mongo_client() as client:
         db = client.get_default_database("stock_intelligence")
         latest = db.companyfacts_snapshots.find_one(
@@ -65,12 +65,18 @@ def mongo_revenue_facts(ticker, tag):
         )
         if latest is None:
             raise ValueError(f"No completed SEC snapshot for {ticker}")
-        concept = db.companyfacts_concepts.find_one(
-            {"_id": f"{latest['_id']}/us-gaap/{tag}"}, {"concept.units.USD": 1}
+        documents = db.companyfacts_concepts.find(
+            {"_id": {"$in": [f"{latest['_id']}/us-gaap/{tag}" for tag in tags]}},
+            {"tag": 1, "concept.units.USD": 1},
         )
-        if concept is None:
-            raise ValueError(f"No {tag} in {ticker} snapshot {latest['_id']}")
-        return concept["concept"]["units"]["USD"]
+        return {doc["tag"]: doc["concept"]["units"].get("USD", []) for doc in documents}
+
+
+def mongo_revenue_facts(ticker, tag):
+    concepts = mongo_revenue_concepts(ticker, [tag])
+    if not concepts.get(tag):
+        raise ValueError(f"No USD facts for {ticker} and {tag}")
+    return concepts[tag]
 
 
 def main():

@@ -1,4 +1,4 @@
-"""Load one fiscal year of Microsoft quarterly revenue into PostgreSQL."""
+"""Load quarterly revenue for the requested companies into PostgreSQL."""
 
 import os
 from pathlib import Path
@@ -10,13 +10,14 @@ from sqlalchemy.dialects.postgresql import JSONB
 from extract_revenue import quarterly_revenue, revenue_arguments
 
 
-def load(fiscal_year, from_mongo=False):
+def load(fiscal_year, from_mongo=False, tickers=("MSFT",)):
     load_dotenv(Path(__file__).resolve().parent / "src/stock_db/alembic_migration/.env")
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise SystemExit("Set DATABASE_URL to the same PostgreSQL URL used by Alembic.")
 
-    rows = quarterly_revenue(fiscal_year, from_mongo)
+    tickers = list(dict.fromkeys(tickers))
+    rows = [row for ticker in tickers for row in quarterly_revenue(fiscal_year, from_mongo, ticker)]
     statement = text("""
         INSERT INTO dev.quarterly_revenue AS stored
             (ticker, period_start, period_end, revenue_usd, filing_id, filed_on, source_facts)
@@ -36,9 +37,9 @@ def load(fiscal_year, from_mongo=False):
     """).bindparams(bindparam("source_facts", type_=JSONB))
     with create_engine(database_url).begin() as conn:
         conn.execute(statement, rows)
-    print(f"Processed {len(rows)} quarters for MSFT FY{fiscal_year}.")
+    print(f"Processed {len(rows)} quarters for {', '.join(tickers)} FY{fiscal_year}.")
 
 
 if __name__ == "__main__":
     args = revenue_arguments()
-    load(args.fiscal_year, args.from_mongo)
+    load(args.fiscal_year, args.from_mongo, args.tickers)

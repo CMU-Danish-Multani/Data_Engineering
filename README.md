@@ -96,3 +96,23 @@ resolved manager-quarter and security, excluding put/call and principal-amount
 rows. An absent share disclosure is NULL. The comparison labels one-sided
 disclosures and calculates a share change only when valid counts exist on
 both sides. Changes are in reported units, without split adjustments.
+
+### Fiscal-quarter revenue for the five companies
+
+```bash
+uv run load_revenue.py --from-mongo --fiscal-year 2025 --tickers MSFT AMZN GOOGL META NVDA
+```
+
+This loads a completed fiscal year per company in one PostgreSQL transaction.
+The extractor identifies fiscal-year boundaries from annual revenue facts and
+uses actual reported quarter dates, including NVIDIA's week-based year.
+It checks whole-company USD revenue across supported US-GAAP tags and selects
+the latest disclosure for the exact period. Q4 normally uses annual revenue
+minus the first nine months. For Alphabet and Meta FY2025, the published
+million-dollar figures have small reconciliation differences. Two manually
+verified Q4 earnings-release rows in
+`data/reference/quarterly_revenue_releases.csv` supply the directly reported
+values. Their source URLs, filing IDs, and signed reconciliation differences
+are retained in the PostgreSQL row's `source_facts`. Use the annual filing
+value for annual revenue. Different companies' FY2025 periods end on
+different dates.
