@@ -64,6 +64,40 @@ WHERE fiscal_year = 2025 AND fiscal_quarter = 4
 ORDER BY ticker;
 ```
 
+## Quarterly operating margin
+
+After applying the migrations and loading the revenue quarters, run:
+
+```bash
+uv run load_operating_income.py --start-year 2019 --end-year 2025
+```
+
+The loader reads consolidated GAAP operating income (or loss) from the SEC
+Company Facts snapshot in MongoDB. SEC filing metadata identifies each
+10-Q or 10-K's own reporting period. It uses the directly reported quarter
+when available and checks it against the change in year-to-date income.
+For FY2019–FY2025 the 35 linked Q4 GAAP earnings releases in
+`data/reference/operating_income_releases.csv` provide an additional check
+or supply the reported Q4 when the annual filing gives only a full-year total.
+Without a reported quarter the loader subtracts the preceding cumulative total.
+Signed differences up to $1 million are retained with the source filings
+in `dev.quarterly_operating_income.source_facts`. Larger differences stop
+the load. All years in one run are written in a single transaction.
+
+`final.company_financials_quarterly` joins operating income, revenue and
+capital expenditure on the same ticker and exact fiscal dates. Operating
+margin is 100 times operating income divided by the project's stored revenue
+for that quarter. Negative operating income yields a negative margin.
+A missing input or zero revenue yields NULL.
+
+```sql
+SELECT ticker, fiscal_year, fiscal_quarter, operating_income_usd, revenue_usd,
+       round(operating_margin_pct, 2) AS operating_margin_pct
+FROM final.company_financials_quarterly
+WHERE fiscal_year = 2025 AND fiscal_quarter = 4
+ORDER BY ticker;
+```
+
 ## Daily stock prices
 
 Apply the Alembic migrations, then run the price loader from the repository root:

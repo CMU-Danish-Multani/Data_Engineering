@@ -1,18 +1,9 @@
 """Load cash purchases of long-lived assets for completed company fiscal years."""
 
 import argparse
-import csv
-import json
-import os
-import time
 from pathlib import Path
-from urllib.request import Request, urlopen
 
-from dotenv import load_dotenv
-from sqlalchemy import bindparam, create_engine, text
-from sqlalchemy.dialects.postgresql import JSONB
-
-from sec_companyfacts import ENV_FILE, mongo_usd_concepts
+from fiscal_metrics import filing_periods, load_metric, read_filing_references
 
 
 TAGS = ("PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets")
@@ -20,39 +11,7 @@ REFERENCE = Path(__file__).resolve().parent / "data/reference/capex_filing_lines
 
 
 def filing_references():
-    refs = {}
-    with REFERENCE.open(newline="") as source:
-        for row in csv.DictReader(source):
-            key = (row.pop("ticker"), row["start"], row["end"])
-            if key in refs:
-                raise ValueError(f"Duplicate cash-flow filing reference for {key}")
-            row["val"] = int(row["val"])
-            refs[key] = row
-    return refs
-
-
-def filing_periods(cik, first_year):
-    """Map accessions to their own report dates, excluding comparative columns."""
-    base = "https://data.sec.gov/submissions/"
-
-    def fetch(filename):
-        time.sleep(0.2)
-        request = Request(base + filename, headers={"User-Agent": os.environ["SEC_USER_AGENT"]})
-        with urlopen(request, timeout=45) as response:
-            return json.load(response)
-
-    filings = fetch(f"CIK{str(cik).zfill(10)}.json")["filings"]
-    pages = [filings["recent"]]
-    for page in filings["files"]:
-        # An early fiscal quarter may end in the previous calendar year.
-        if page["filingTo"] >= f"{first_year - 1}-01-01":
-            pages.append(fetch(page["name"]))
-    dates = {}
-    for page in pages:
-        for accn, end, form in zip(page["accessionNumber"], page["reportDate"], page["form"], strict=True):
-            if form in ("10-Q", "10-Q/A", "10-K", "10-K/A"):
-                dates[accn] = end
-    return dates
+    return read_filing_references(REFERENCE)
 
 
 def ytd_fact(ticker, year, quarter, start, end, concepts, references, report_dates):
@@ -104,37 +63,7 @@ def quarterly_capex(ticker, year, periods, concepts, references, report_dates):
 
 
 def load(start_year, end_year, tickers=None):
-    if start_year > end_year:
-        raise ValueError("The start year must be at or before the end year")
-    load_dotenv(ENV_FILE)
-    references = filing_references()
-    upsert = text("""
-        INSERT INTO dev.quarterly_capex AS old (ticker, period_start, period_end, capex_usd, source_facts)
-        VALUES (:ticker, :period_start, :period_end, :capex_usd, :source_facts)
-        ON CONFLICT (ticker, period_start, period_end) DO UPDATE SET
-            capex_usd = EXCLUDED.capex_usd, source_facts = EXCLUDED.source_facts
-        WHERE (old.capex_usd, old.source_facts) IS DISTINCT FROM
-              (EXCLUDED.capex_usd, EXCLUDED.source_facts)
-    """).bindparams(bindparam("source_facts", type_=JSONB))
-    with create_engine(os.environ["DATABASE_URL"]).begin() as conn:
-        conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('dev.quarterly_capex', 0))"))
-        company_ids = dict(conn.execute(text("SELECT ticker, cik FROM dev.companies ORDER BY ticker")).all())
-        companies = list(dict.fromkeys(tickers)) if tickers else list(company_ids)
-        count = 0
-        for ticker in companies:
-            if ticker not in company_ids:
-                raise ValueError(f"Unknown company ticker: {ticker}")
-            concepts = mongo_usd_concepts(ticker, TAGS)
-            report_dates = filing_periods(company_ids[ticker], start_year)
-            for year in range(start_year, end_year + 1):
-                periods = conn.execute(text("""
-                    SELECT fiscal_quarter, period_start, period_end
-                    FROM final.financial_metrics_quarterly
-                    WHERE ticker = :ticker AND fiscal_year = :year ORDER BY fiscal_quarter
-                """), {"ticker": ticker, "year": year}).all()
-                rows = quarterly_capex(ticker, year, periods, concepts, references, report_dates)
-                conn.execute(upsert, rows)
-                count += len(rows)
+    count = load_metric("capex", start_year, end_year, tickers, TAGS, filing_references(), quarterly_capex)
     print(f"Processed {count} CapEx quarters for FY{start_year}–FY{end_year}.")
 
 
