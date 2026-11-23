@@ -26,6 +26,44 @@ completed Microsoft snapshot. The third writes those rows to PostgreSQL
 `dev.quarterly_revenue`. Omitting `--from-mongo` uses the saved Microsoft
 file as before.
 
+## Quarterly capital expenditure
+
+Load the revenue quarters for the same tickers and years first. They supply
+the fiscal calendar and the denominator for CapEx as a percentage of revenue.
+After applying the Alembic migrations, run:
+
+```bash
+uv run load_capex.py --start-year 2019 --end-year 2025
+```
+
+The loader reads USD cash purchases from the investing section of each
+company's cash-flow statement. It selects year-to-date 10-Q and full-year
+10-K figures for the specified reporting year (including amendments). This
+keeps subsequent years' comparative presentations out of the differences.
+SEC submissions metadata identifies the original reporting period for each
+filing accession. The loader uses the configured `SEC_USER_AGENT` to read it.
+When the original cash-flow line is missing from the selected Company Facts
+tags, reviewed NVIDIA filing lines in
+`data/reference/capex_filing_lines.csv` supply that cumulative amount.
+Each row links to the original SEC statement. Cash outflows are stored as
+positive dollars. Q1 uses its reported total. Q2 through Q4 subtract the
+preceding cumulative amount. Both inputs are available in
+`dev.quarterly_capex.source_facts`.
+
+These are consolidated purchases. NVIDIA's line also includes intangible
+assets. Amazon uses gross purchases before proceeds and incentives. The
+metric excludes separately reported finance-lease principal repayments.
+Users comparing companies or years should consider differences in filing
+presentation. Different fiscal years can cover different calendar months.
+
+```sql
+SELECT ticker, period_end, capex_usd, round(capex_growth_yoy_pct, 2) AS growth_pct,
+       round(capex_pct_of_revenue, 2) AS revenue_pct
+FROM final.capital_expenditure_quarterly
+WHERE fiscal_year = 2025 AND fiscal_quarter = 4
+ORDER BY ticker;
+```
+
 ## Daily stock prices
 
 Apply the Alembic migrations, then run the price loader from the repository root:
