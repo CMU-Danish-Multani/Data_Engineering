@@ -100,8 +100,12 @@ both sides. Changes are in reported units, without split adjustments.
 ### Fiscal-quarter revenue for the five companies
 
 ```bash
-uv run load_revenue.py --from-mongo --fiscal-year 2024 --tickers MSFT AMZN GOOGL META NVDA
-uv run load_revenue.py --from-mongo --fiscal-year 2025 --tickers MSFT AMZN GOOGL META NVDA
+(
+    set -e
+    for year in 2019 2020 2021 2022 2023 2024 2025; do
+        uv run load_revenue.py --from-mongo --fiscal-year "$year" --tickers MSFT AMZN GOOGL META NVDA
+    done
+)
 ```
 
 This loads a completed fiscal year per company in one PostgreSQL transaction.
@@ -109,8 +113,7 @@ The extractor identifies fiscal-year boundaries from annual revenue facts and
 uses actual reported quarter dates, including NVIDIA's week-based year.
 It checks whole-company USD revenue across supported US-GAAP tags and selects
 the latest disclosure for the exact period. Q4 normally uses annual revenue
-minus the first nine months. For Alphabet FY2025 and Meta FY2024 and FY2025, the published
-million-dollar figures have small reconciliation differences. The verified
+minus the first nine months. Where published figures differ at million-dollar precision, the verified
 Q4 earnings-release rows in
 `data/reference/quarterly_revenue_releases.csv` supply the directly reported
 values. Their source URLs, filing IDs, and signed reconciliation differences
@@ -132,3 +135,6 @@ The view publishes fiscal years with four consecutive quarters covering the
 annual filing period. It labels quarters in date order within that period and
 compares each with the same company's matching fiscal quarter one year earlier.
 Growth is NULL when the prior year is missing or prior revenue is zero.
+
+The FY2019–FY2025 load covers 140 quarters across the five companies and
+provides 120 year-over-year comparisons, beginning with FY2020.
