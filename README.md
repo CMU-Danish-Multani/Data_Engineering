@@ -26,6 +26,78 @@ completed Microsoft snapshot. The third writes those rows to PostgreSQL
 `dev.quarterly_revenue`. Omitting `--from-mongo` uses the saved Microsoft
 file as before.
 
+## Quarterly capital expenditure
+
+Load the revenue quarters for the same tickers and years first. They supply
+the fiscal calendar and the denominator for CapEx as a percentage of revenue.
+After applying the Alembic migrations, run:
+
+```bash
+uv run load_capex.py --start-year 2019 --end-year 2025
+```
+
+The loader reads USD cash purchases from the investing section of each
+company's cash-flow statement. It selects year-to-date 10-Q and full-year
+10-K figures for the specified reporting year (including amendments). This
+keeps subsequent years' comparative presentations out of the differences.
+SEC submissions metadata identifies the original reporting period for each
+filing accession. The loader uses the configured `SEC_USER_AGENT` to read it.
+When the original cash-flow line is missing from the selected Company Facts
+tags, reviewed NVIDIA filing lines in
+`data/reference/capex_filing_lines.csv` supply that cumulative amount.
+Each row links to the original SEC statement. Cash outflows are stored as
+positive dollars. Q1 uses its reported total. Q2 through Q4 subtract the
+preceding cumulative amount. Both inputs are available in
+`dev.quarterly_capex.source_facts`.
+
+These are consolidated purchases. NVIDIA's line also includes intangible
+assets. Amazon uses gross purchases before proceeds and incentives. The
+metric excludes separately reported finance-lease principal repayments.
+Users comparing companies or years should consider differences in filing
+presentation. Different fiscal years can cover different calendar months.
+
+```sql
+SELECT ticker, period_end, capex_usd, round(capex_growth_yoy_pct, 2) AS growth_pct,
+       round(capex_pct_of_revenue, 2) AS revenue_pct
+FROM final.capital_expenditure_quarterly
+WHERE fiscal_year = 2025 AND fiscal_quarter = 4
+ORDER BY ticker;
+```
+
+## Quarterly operating margin
+
+After applying the migrations and loading the revenue quarters, run:
+
+```bash
+uv run load_operating_income.py --start-year 2019 --end-year 2025
+```
+
+The loader reads consolidated GAAP operating income (or loss) from the SEC
+Company Facts snapshot in MongoDB. SEC filing metadata identifies each
+10-Q or 10-K's own reporting period. It uses the directly reported quarter
+when available and checks it against the change in year-to-date income.
+For FY2019–FY2025 the 35 linked Q4 GAAP earnings releases in
+`data/reference/operating_income_releases.csv` provide an additional check
+or supply the reported Q4 when the annual filing gives only a full-year total.
+Without a reported quarter the loader subtracts the preceding cumulative total.
+Signed differences up to $1 million are retained with the source filings
+in `dev.quarterly_operating_income.source_facts`. Larger differences stop
+the load. All years in one run are written in a single transaction.
+
+`final.company_financials_quarterly` joins operating income, revenue and
+capital expenditure on the same ticker and exact fiscal dates. Operating
+margin is 100 times operating income divided by the project's stored revenue
+for that quarter. Negative operating income yields a negative margin.
+A missing input or zero revenue yields NULL.
+
+```sql
+SELECT ticker, fiscal_year, fiscal_quarter, operating_income_usd, revenue_usd,
+       round(operating_margin_pct, 2) AS operating_margin_pct
+FROM final.company_financials_quarterly
+WHERE fiscal_year = 2025 AND fiscal_quarter = 4
+ORDER BY ticker;
+```
+
 ## Daily stock prices
 
 Apply the Alembic migrations, then run the price loader from the repository root:
@@ -100,8 +172,12 @@ both sides. Changes are in reported units, without split adjustments.
 ### Fiscal-quarter revenue for the five companies
 
 ```bash
-uv run load_revenue.py --from-mongo --fiscal-year 2024 --tickers MSFT AMZN GOOGL META NVDA
-uv run load_revenue.py --from-mongo --fiscal-year 2025 --tickers MSFT AMZN GOOGL META NVDA
+(
+    set -e
+    for year in 2019 2020 2021 2022 2023 2024 2025; do
+        uv run load_revenue.py --from-mongo --fiscal-year "$year" --tickers MSFT AMZN GOOGL META NVDA
+    done
+)
 ```
 
 This loads a completed fiscal year per company in one PostgreSQL transaction.
@@ -109,8 +185,7 @@ The extractor identifies fiscal-year boundaries from annual revenue facts and
 uses actual reported quarter dates, including NVIDIA's week-based year.
 It checks whole-company USD revenue across supported US-GAAP tags and selects
 the latest disclosure for the exact period. Q4 normally uses annual revenue
-minus the first nine months. For Alphabet FY2025 and Meta FY2024 and FY2025, the published
-million-dollar figures have small reconciliation differences. The verified
+minus the first nine months. Where published figures differ at million-dollar precision, the verified
 Q4 earnings-release rows in
 `data/reference/quarterly_revenue_releases.csv` supply the directly reported
 values. Their source URLs, filing IDs, and signed reconciliation differences
@@ -132,3 +207,6 @@ The view publishes fiscal years with four consecutive quarters covering the
 annual filing period. It labels quarters in date order within that period and
 compares each with the same company's matching fiscal quarter one year earlier.
 Growth is NULL when the prior year is missing or prior revenue is zero.
+
+The FY2019–FY2025 load covers 140 quarters across the five companies and
+provides 120 year-over-year comparisons, beginning with FY2020.

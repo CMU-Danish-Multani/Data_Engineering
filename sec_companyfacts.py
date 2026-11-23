@@ -57,7 +57,7 @@ def ingest(db, ticker, cik, url, raw, acquired_at):
     }}, upsert=True)
 
 
-def mongo_revenue_concepts(ticker, tags):
+def mongo_usd_concepts(ticker, tags):
     with mongo_client() as client:
         db = client.get_default_database("stock_intelligence")
         latest = db.companyfacts_snapshots.find_one(
@@ -70,6 +70,10 @@ def mongo_revenue_concepts(ticker, tags):
             {"tag": 1, "concept.units.USD": 1},
         )
         return {doc["tag"]: doc["concept"]["units"].get("USD", []) for doc in documents}
+
+
+def mongo_revenue_concepts(ticker, tags):
+    return mongo_usd_concepts(ticker, tags)
 
 
 def mongo_revenue_facts(ticker, tag):
