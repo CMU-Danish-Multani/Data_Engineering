@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Intelligence Dashboard (prototype)</title>
+<meta name="description" content="Team 8, 95-815 Data Engineering: prototype dashboard comparing Microsoft, Alphabet, Amazon, Meta and NVIDIA on 13 KPIs from SEC filings and Yahoo Finance prices.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --bg:#F4F6F9; --card:#FFFFFF; --line:#D9DEE6; --soft:#EEF0F3; --ink:#111827; --muted:#4B5563; --accent:#1D4ED8; --neg:#C2410C; --warnbg:#FFF7E6; --warnline:#F1D9A8; --warnink:#7A4A06; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:15px; line-height:1.5; }
+a { color:var(--accent); } a:hover { color:#1E3A8A; }
+.mono { font-family:'IBM Plex Mono', monospace; }
+header { background:var(--card); border-bottom:1px solid var(--line); }
+.wrap { max-width:1200px; margin:0 auto; padding:0 24px; }
+.top { display:flex; flex-wrap:wrap; align-items:center; gap:12px 28px; padding:14px 24px; max-width:1200px; margin:0 auto; }
+.brand { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink); font-weight:700; font-size:17px; }
+nav.main { display:flex; flex-wrap:wrap; gap:4px 20px; font-size:14px; }
+nav.main a { color:var(--muted); text-decoration:none; padding:10px 0; border-bottom:2px solid transparent; }
+nav.main a[aria-current="page"] { color:var(--ink); font-weight:600; border-bottom-color:var(--accent); }
+.meta { flex:1 1 200px; text-align:right; font-size:13px; color:var(--muted); }
+.banner { background:var(--warnbg); border-bottom:1px solid var(--warnline); color:var(--warnink); font-size:13px; }
+.banner div { max-width:1200px; margin:0 auto; padding:8px 24px; }
+main { max-width:1200px; margin:0 auto; padding:28px 24px; display:flex; flex-direction:column; gap:22px; }
+h1 { margin:0; font-size:30px; line-height:1.2; } h2 { margin:0; font-size:18px; }
+.sub { margin:4px 0 0; color:var(--muted); font-size:14px; }
+.head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:16px; }
+.grid { display:grid; gap:16px; }
+.g4 { grid-template-columns:repeat(4, minmax(0,1fr)); } .g5 { grid-template-columns:repeat(5, minmax(0,1fr)); gap:14px; } .g3 { grid-template-columns:repeat(3, minmax(0,1fr)); } .g2 { grid-template-columns:repeat(2, minmax(0,1fr)); }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; display:flex; flex-direction:column; gap:6px; }
+.card .lab { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+.card .val { font-size:26px; font-weight:700; font-family:'IBM Plex Mono', monospace; }
+.card .note { font-size:13px; color:#374151; }
+.panel { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px 20px; display:flex; flex-direction:column; gap:14px; }
+.pills { display:flex; flex-wrap:wrap; gap:8px; }
+.pill { height:38px; padding:0 14px; border-radius:999px; border:1px solid #C7CED9; background:#fff; color:var(--ink); font:inherit; font-size:13px; cursor:pointer; }
+.pill[aria-pressed="true"] { background:var(--ink); color:#fff; border-color:var(--ink); }
+.seg { display:flex; border:1px solid #C7CED9; border-radius:8px; overflow:hidden; }
+.seg button { height:38px; padding:0 14px; border:0; background:#fff; font:inherit; font-size:13px; cursor:pointer; }
+.seg button[aria-pressed="true"] { background:var(--ink); color:#fff; }
+.hbar { display:grid; grid-template-columns:170px minmax(0,1fr) 90px; gap:12px; align-items:center; }
+.track { height:22px; background:var(--soft); border-radius:4px; } .fill { height:22px; background:var(--accent); border-radius:4px; }
+.tablebox { overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; padding:12px 10px; border-bottom:1px solid var(--line); text-align:right; }
+td { padding:11px 10px; border-bottom:1px solid var(--soft); text-align:right; }
+th:first-child, td:first-child { text-align:left; padding-left:14px; }
+.small { font-size:13px; color:var(--muted); margin:0; }
+.chart { display:flex; align-items:stretch; gap:3px; height:240px; }
+.col { flex:1 1 0; min-width:0; display:flex; flex-direction:column; }
+.col .top { padding:0; display:flex; flex-direction:column; justify-content:flex-end; max-width:none; margin:0; gap:0; }
+.col .bot { border-top:1px solid #9CA3AF; }
+.vlab { font-size:10px; text-align:center; color:#374151; white-space:nowrap; overflow:hidden; font-family:'IBM Plex Mono', monospace; }
+.axis { display:flex; gap:3px; } .axis div { flex:1 1 0; min-width:0; text-align:center; font-size:10px; color:var(--muted); font-family:'IBM Plex Mono', monospace; }
+.tabs { display:flex; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--line); }
+.tabs button { height:44px; padding:0 16px; border:0; background:transparent; font:inherit; font-size:14px; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; }
+.tabs button[aria-pressed="true"] { color:var(--ink); font-weight:600; border-bottom-color:var(--accent); }
+.legend { display:flex; flex-wrap:wrap; gap:16px; font-size:12px; color:var(--muted); }
+.sw { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-1px; margin-right:6px; }
+.flag { display:inline-block; margin-left:6px; padding:1px 8px; border-radius:6px; font-size:11px; font-weight:600; background:#FDF1E6; color:#8A3B06; }
+.warn { background:var(--warnbg); border:1px solid var(--warnline); border-radius:10px; padding:12px 16px; font-size:13px; color:var(--warnink); }
+blockquote { margin:0; padding:0 0 0 14px; border-left:3px solid #CBD5E1; font-size:16px; }
+.result { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:20px; }
+.kpibox { background:var(--bg); border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; align-self:start; }
+footer { border-top:1px solid var(--line); background:var(--card); font-size:12px; color:var(--muted); }
+footer div { max-width:1200px; margin:0 auto; padding:16px 24px; }
+.sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+@media (max-width: 860px) { .g4, .g5, .g3 { grid-template-columns:repeat(2, minmax(0,1fr)); } .g2, .result { grid-template-columns:1fr; } .hbar { grid-template-columns:110px minmax(0,1fr) 70px; } .meta { text-align:left; } h1 { font-size:24px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <a class="brand" href="#overview"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28"><rect x="1" y="1" width="26" height="26" rx="6" fill="#1D4ED8"></rect><path d="M7 20 V12 M12 20 V8 M17 20 V14 M22 20 V10" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"></path></svg>Stock Intelligence</a>
+    <nav class="main" aria-label="Main">
+      <a href="#overview">Overview</a><a href="#company">Company</a><a href="#products">Products</a><a href="#funds">Fund activity</a><a href="#ask">Ask the filings</a>
+    </nav>
+    <div class="meta">Prototype · data through fiscal 2025 · SEC and Yahoo Finance</div>
+  </div>
+</header>
+<div class="banner"><div>Prototype by Team 8 (95-815 Data Engineering). Every number comes from our PostgreSQL final views, built from public SEC filings and Yahoo Finance prices.</div></div>
+<main id="app" tabindex="-1"></main>
+<footer><div>Team 8, 95-815 Data Engineering, Carnegie Mellon University. Educational research tool. Not investment advice. Source code: <a href="https://github.com/CMU-Danish-Multani/Data_Engineering">github.com/CMU-Danish-Multani/Data_Engineering</a></div></footer>
+<script src="data.js"></script>
+<script>
+(function () {
+  const D = window.DASH_DATA;
+  const NAMES = { AMZN: 'Amazon', GOOGL: 'Alphabet', META: 'Meta', MSFT: 'Microsoft', NVDA: 'NVIDIA', GOOG: 'Alphabet Class C' };
+  const FYEND = { AMZN: 'December', GOOGL: 'December', META: 'December', MSFT: 'June', NVDA: 'late January' };
+  const ROLE = { AMZN: 'Cloud buyer (AWS) and retailer.', GOOGL: 'Cloud buyer (Google Cloud) and search advertising.', META: 'AI buyer for its apps and advertising.', MSFT: 'Cloud buyer (Azure) and software.', NVDA: 'Main supplier of AI chips to the other four.' };
+  const state = { metric: 'capexpct', ticker: 'MSFT', cmetric: 1, period: 'Quarterly', product: 'AMZN', sec: 'NVDA', filter: 'All' };
+  const app = document.getElementById('app');
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pct = (v) => (v > 0 ? '+' : '') + v.toFixed(1) + '%';
+  const pills = (items, cur, attr, cls) => items.map((it) => `<button type="button" class="${cls || 'pill'}" data-${attr}="${esc(it.key)}" aria-pressed="${it.key === cur}">${esc(it.label)}</button>`).join('');
+  const fmtEnd = (s) => { const d = new Date(s + 'T00:00:00'); return d.toLocaleString('en-US', { month: 'short', year: 'numeric' }); };
+
+  function barChart(series, opts) {
+    const vals = series.map((s) => s.v).filter((v) => v !== null);
+    const maxPos = Math.max(0.0001, ...vals, 0.0001);
+    const maxNeg = Math.max(0, ...vals.map((v) => -v));
+    const plot = opts.height || 216;
+    const topH = plot * maxPos / (maxPos + maxNeg);
+    const cols = series.map((s) => {
+      const up = s.v !== null && s.v > 0 ? s.v / maxPos * topH : 0;
+      const down = s.v !== null && s.v < 0 ? -s.v / (maxNeg || 1) * (plot - topH) : 0;
+      const missing = s.v === null ? `<div style="height:${(topH * 0.35).toFixed(0)}px;border:1px dashed #9CA3AF;border-bottom:0;border-radius:2px 2px 0 0" title="${esc(s.label)}: not stated"></div>` : '';
+      return `<div class="col"><div class="top" style="height:${(topH + 12).toFixed(0)}px">${opts.labels && s.v !== null && s.v >= 0 ? `<div class="vlab">${esc(opts.fmt(s.v))}</div>` : ''}<div style="height:${up.toFixed(1)}px;background:#1D4ED8;border-radius:2px 2px 0 0" title="${esc(s.label)}: ${s.v === null ? 'not stated' : esc(opts.fmt(s.v))}"></div>${missing}</div><div class="bot" style="height:${(plot - topH + 12).toFixed(0)}px"><div style="height:${down.toFixed(1)}px;background:#C2410C;border-radius:0 0 2px 2px" title="${esc(s.label)}: ${s.v !== null ? esc(opts.fmt(s.v)) : ''}"></div>${opts.labels && s.v !== null && s.v < 0 ? `<div class="vlab" style="color:#9A3412">${esc(opts.fmt(s.v))}</div>` : ''}</div></div>`;
+    }).join('');
+    return `<div class="chart" role="img" aria-label="${esc(opts.title)}" style="height:${plot + 24}px">${cols}</div><div class="axis">${series.map((s) => `<div>${esc(s.axis || '')}</div>`).join('')}</div>`;
+  }
+
+  function overview() {
+    const data = D.annual;
+    const metrics = [
+      { key: 'capexpct', label: 'CapEx / revenue', unit: '%', help: 'Share of revenue spent on data centers, servers and other long-lived assets.' },
+      { key: 'revg', label: 'Revenue growth', unit: '%', help: 'Revenue growth against the prior fiscal year.' },
+      { key: 'opm', label: 'Operating margin', unit: '%', help: 'Operating income as a share of revenue.' },
+      { key: 'fcf', label: 'Free cash flow', unit: '$B', help: 'Cash from operations minus capital expenditure, billions of dollars.' },
+      { key: 'pe', label: 'P/E', unit: 'x', help: 'Share price divided by the last twelve months of diluted earnings per share.' },
+      { key: 'evrev', label: 'EV / revenue', unit: 'x', help: 'Enterprise value (market value plus debt minus cash) divided by revenue.' },
+      { key: 'fcfy', label: 'FCF yield', unit: '%', help: 'Free cash flow as a share of market value.' }
+    ];
+    const fmt = (v, u) => u === '$B' ? '$' + v.toFixed(1) + 'B' : u === 'x' ? v.toFixed(1) + 'x' : v.toFixed(u === '%' && Math.abs(v) < 5 && state.metric === 'fcfy' ? 2 : 1) + '%';
+    const m = metrics.find((x) => x.key === state.metric);
+    const max = Math.max(...data.map((d) => d[m.key]));
+    const buyers = data.filter((d) => d.t !== 'NVDA');
+    const capexNow = buyers.reduce((s, d) => s + d.capex, 0);
+    const capexPrev = buyers.reduce((s, d) => s + d.capex / (1 + d.capexg / 100), 0);
+    const nv = data.find((d) => d.t === 'NVDA');
+    const topM = [...data].sort((a, b) => b.opm - a.opm)[0];
+    const lowPe = [...data].sort((a, b) => a.pe - b.pe)[0];
+    const cards = [
+      ['CapEx of the 4 cloud buyers', '$' + capexNow.toFixed(1) + 'B', pct((capexNow / capexPrev - 1) * 100) + ' against the prior year'],
+      ['NVIDIA revenue', '$' + nv.rev.toFixed(1) + 'B', pct(nv.revg) + ' as the buyers spend more'],
+      ['Highest operating margin', topM.opm.toFixed(1) + '%', NAMES[topM.t]],
+      ['Lowest P/E', lowPe.pe.toFixed(1) + 'x', NAMES[lowPe.t]]
+    ];
+    return `
+      <div class="head"><div><h1>AI infrastructure, fiscal 2025</h1><p class="sub">Five companies, each on its own latest full fiscal year. Microsoft's year ends in June and NVIDIA's in January.</p></div>
+      <a href="#company" class="pill" style="display:inline-flex;align-items:center;height:44px;border-radius:8px;background:#111827;color:#fff;text-decoration:none;font-weight:600">Quarterly trends by company</a></div>
+      <div class="grid g4">${cards.map((c) => `<div class="card"><div class="lab">${c[0]}</div><div class="val">${c[1]}</div><div class="note">${c[2]}</div></div>`).join('')}</div>
+      <section class="panel" aria-labelledby="cmp"><div class="head" style="align-items:center"><h2 id="cmp">Compare on one KPI</h2><div class="pills" role="group" aria-label="KPI">${pills(metrics, state.metric, 'metric')}</div></div>
+        <p class="small">${esc(m.help)}</p>
+        ${[...data].sort((a, b) => b[m.key] - a[m.key]).map((d) => `<div class="hbar"><a href="#company" data-goto="${d.t}" style="text-decoration:none;color:#111827;font-weight:600">${d.t} <span style="font-weight:400;color:#4B5563;font-size:13px">${NAMES[d.t]}</span></a><div class="track"><div class="fill" style="width:${Math.max(2, d[m.key] / max * 100).toFixed(1)}%"></div></div><div class="mono" style="text-align:right">${fmt(d[m.key], m.unit)}</div></div>`).join('')}
+      </section>
+      <section aria-labelledby="tbl" style="display:flex;flex-direction:column;gap:10px"><h2 id="tbl">All 10 financial and valuation KPIs</h2>
+        <div class="tablebox"><table style="min-width:1100px"><thead><tr><th scope="col">Company</th><th scope="col">Revenue</th><th scope="col">Growth</th><th scope="col">CapEx</th><th scope="col">CapEx growth</th><th scope="col">CapEx / revenue</th><th scope="col">Op. margin</th><th scope="col">Free cash flow</th><th scope="col">P/E</th><th scope="col">EV / revenue</th><th scope="col">FCF yield</th></tr></thead><tbody>
+        ${data.map((d) => `<tr class="mono"><td style="font-family:'IBM Plex Sans',sans-serif"><a href="#company" data-goto="${d.t}" style="font-weight:600;text-decoration:none;color:#111827">${d.t}</a><div style="font-size:12px;color:#4B5563">${NAMES[d.t]}, FY ends ${fmtEnd(d.end)}</div></td><td>$${d.rev.toFixed(1)}</td><td>${pct(d.revg)}</td><td>$${d.capex.toFixed(1)}</td><td>${pct(d.capexg)}</td><td>${d.capexpct.toFixed(1)}%</td><td>${d.opm.toFixed(1)}%</td><td>$${d.fcf.toFixed(1)}</td><td>${d.pe.toFixed(1)}x</td><td>${d.evrev.toFixed(1)}x</td><td>${d.fcfy.toFixed(2)}%</td></tr>`).join('')}
+        </tbody></table></div>
+        <p class="small">Dollar values in billions. Growth compares with the same company's prior fiscal year. Valuation uses the last close on or before the fiscal year end. Source views: final.company_financials_quarterly and final.valuation_annual.</p>
+      </section>`;
+  }
+
+  function company() {
+    const t = state.ticker;
+    const q = D.quarters[t];
+    const metrics = [
+      { label: 'Revenue', idx: 1, unit: '$B', note: 'Revenue per fiscal quarter, billions of dollars.' },
+      { label: 'CapEx', idx: 2, unit: '$B', note: 'Cash spent on property and equipment, billions of dollars.' },
+      { label: 'Operating margin', idx: 3, unit: '%', note: 'Operating income as a share of revenue.' },
+      { label: 'Free cash flow', idx: 4, unit: '$B', note: 'Operating cash flow minus CapEx. Bars below the line are quarters where cash spent exceeded cash earned.' }
+    ];
+    const m = metrics[state.cmetric - 1];
+    const annual = state.period === 'Annual';
+    let series;
+    if (!annual) series = q.map((r) => ({ label: 'FY' + r[0], v: r[m.idx], axis: r[0].endsWith('Q1') ? "'" + r[0].slice(0, 2) : '' }));
+    else series = [0, 1, 2, 3, 4, 5, 6].map((y) => { const rows = q.slice(y * 4, y * 4 + 4); const rev = rows.reduce((s, r) => s + r[1], 0); const v = m.idx === 3 ? rows.reduce((s, r) => s + r[3] * r[1], 0) / rev : rows.reduce((s, r) => s + r[m.idx], 0); return { label: 'FY' + (2019 + y), v: v, axis: 'FY' + (2019 + y) }; });
+    const fmt = (v) => m.unit === '%' ? v.toFixed(1) + '%' : (v < 0 ? '-$' : '$') + Math.abs(v).toFixed(1) + 'B';
+    const a = D.annual.find((x) => x.t === t);
+    const v = D.val_hist[t][6];
+    const cards = [
+      ['Revenue, FY2025', '$' + a.rev.toFixed(1) + 'B', pct(a.revg) + ' vs FY2024'], ['CapEx, FY2025', '$' + a.capex.toFixed(1) + 'B', pct(a.capexg) + ' vs FY2024'],
+      ['CapEx / revenue', a.capexpct.toFixed(1) + '%', 'Spending intensity'], ['Operating margin', a.opm.toFixed(1) + '%', 'FY2025'], ['Free cash flow', '$' + a.fcf.toFixed(1) + 'B', 'FY2025'],
+      ['P/E', v[1] === null ? 'n/a' : v[1].toFixed(1) + 'x', 'At fiscal year end'], ['EV / revenue', v[2].toFixed(1) + 'x', 'At fiscal year end'], ['FCF yield', v[3].toFixed(2) + '%', 'FCF / market value'],
+      ['Revenue growth', pct(a.revg), 'FY2025 vs FY2024'], ['CapEx growth', pct(a.capexg), 'FY2025 vs FY2024']
+    ];
+    return `
+      <div class="head"><div><h1>${NAMES[t]} <span class="mono" style="font-size:20px;color:#4B5563">${t}</span></h1><p class="sub">${ROLE[t]} Fiscal year ends in ${FYEND[t]}. FY2019 to FY2025, 28 quarters.</p></div>
+      <div class="pills" role="group" aria-label="Company">${pills(Object.keys(FYEND).map((k) => ({ key: k, label: k })), t, 'ticker')}</div></div>
+      <div class="grid g5">${cards.map((c) => `<div class="card" style="padding:14px 16px"><div style="font-size:12px;color:#4B5563">${c[0]}</div><div class="val" style="font-size:22px">${c[1]}</div><div style="font-size:12px;color:#4B5563">${c[2]}</div></div>`).join('')}</div>
+      <section class="panel" aria-labelledby="trend"><div class="head" style="align-items:center"><h2 id="trend">${m.label}${annual ? ' by fiscal year' : ' by fiscal quarter'}</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:12px"><div class="pills" role="group" aria-label="Metric">${pills(metrics.map((x, i) => ({ key: String(i + 1), label: x.label })), String(state.cmetric), 'cmetric')}</div>
+        <div class="seg" role="group" aria-label="Period">${pills([{ key: 'Quarterly', label: 'Quarterly' }, { key: 'Annual', label: 'Annual' }], state.period, 'period', 'x')}</div></div></div>
+        ${barChart(series, { fmt: fmt, labels: annual, title: m.label })}
+        <p class="small">${m.note} Hover a bar for its value. Source view: final.company_financials_quarterly.</p></section>
+      <section aria-labelledby="val" style="display:flex;flex-direction:column;gap:10px"><h2 id="val">Valuation by fiscal year</h2>
+        <div class="tablebox"><table style="min-width:600px"><thead><tr><th scope="col">Fiscal year</th><th scope="col">P/E</th><th scope="col">EV / revenue</th><th scope="col">FCF yield</th></tr></thead><tbody>
+        ${D.val_hist[t].map((r) => `<tr class="mono"><td>FY${r[0]}</td><td>${r[1] === null ? 'n/a' : r[1].toFixed(1) + 'x'}</td><td>${r[2].toFixed(1)}x</td><td>${r[3].toFixed(2)}%</td></tr>`).join('')}</tbody></table></div>
+        <p class="small">"n/a" means trailing earnings were negative, so P/E is not meaningful. Source view: final.valuation_annual.</p></section>`;
+  }
+
+  function products() {
+    const cfg = {
+      AMZN: ['aws_revenue_usd', 'AWS revenue', 'aws_revenue_usd', 'AWS revenue growth', 'aws_operating_margin_pct', 'AWS operating margin'],
+      GOOGL: ['google_cloud_revenue_usd', 'Google Cloud revenue', 'google_cloud_revenue_usd', 'Google Cloud revenue growth', 'google_cloud_operating_margin_pct', 'Google Cloud operating margin'],
+      MSFT: ['microsoft_cloud_revenue_usd', 'Microsoft Cloud revenue', 'azure_revenue_growth_pct', 'Azure revenue growth', 'microsoft_cloud_gross_margin_pct', 'Microsoft Cloud gross margin'],
+      META: ['family_of_apps_revenue_usd', 'Family of Apps revenue', 'advertising_revenue_usd', 'Advertising revenue growth', 'average_revenue_per_person_usd', 'Revenue per person'],
+      NVDA: ['data_center_revenue_usd', 'Data Center revenue', 'data_center_revenue_usd', 'Data Center revenue growth', 'data_center_share_of_revenue_pct', 'Data Center share of revenue']
+    };
+    const src = Object.fromEntries(D.passages.map((p) => [p.t, p]));
+    src.META = { url: 'https://www.sec.gov/Archives/edgar/data/1326801/000162828026003832/meta-12312025xexhibit991.htm', filed: '2026-01-28' };
+    const t = state.product, c = cfg[t], P = D.products[t];
+    const val = (k) => P[k].map((r) => r[1]);
+    const gro = (k) => k === 'azure_revenue_growth_pct' ? val(k) : P[k].map((r) => r[2]);
+    const labels = P[c[0]].map((r) => r[0]);
+    const main = val(c[0]), growth = gro(c[2]), third = val(c[4]);
+    const last = (a) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] !== null) return [a[i], labels[i]]; return [null, null]; };
+    const n = (a) => a.filter((x) => x !== null).length;
+    const [mv, mq] = last(main), [gv, gq] = last(growth), [tv, tq] = last(third);
+    const lab = (q) => q ? 'Fiscal 20' + q.slice(0, 2) + ' Q' + q.slice(3) : '';
+    const ser = (a) => a.map((v, i) => ({ v: v, label: 'FY' + labels[i], axis: labels[i].endsWith('Q1') ? 'FY' + labels[i].slice(0, 2) : '' }));
+    const second = t === 'META' ? growth : third;
+    return `
+      <div><h1>Product performance</h1><p class="sub">The product lines behind each company's results, read from its quarterly earnings release. Each company is shown on its own metrics; they are not directly comparable.</p></div>
+      <div class="tabs" role="group" aria-label="Company">${['AMZN', 'GOOGL', 'MSFT', 'META', 'NVDA'].map((k) => `<button type="button" data-product="${k}" aria-pressed="${k === t}">${NAMES[k]}</button>`).join('')}</div>
+      <div class="grid g3">
+        <div class="card"><div class="lab">${c[1]}</div><div class="val">${mv === null ? 'Not stated' : '$' + mv.toFixed(1) + 'B'}</div><div class="note">${lab(mq)}</div><div class="small">Stated in ${n(main)} of 28 releases</div></div>
+        <div class="card"><div class="lab">${c[3]}</div><div class="val">${gv === null ? 'Not stated' : (c[2] === 'azure_revenue_growth_pct' ? '' : (gv > 0 ? '+' : '')) + gv.toFixed(1) + '%'}</div><div class="note">${lab(gq)}, against a year earlier</div><div class="small">${n(growth)} of 28 quarters available</div></div>
+        <div class="card"><div class="lab">${c[5]}</div><div class="val">${tv === null ? 'Not stated' : tv.toFixed(1) + '%'}</div><div class="note">${tv === null ? 'Not in Meta’s earnings releases' : lab(tq)}</div><div class="small">Stated in ${n(third)} of 28 releases</div></div>
+      </div>
+      <section class="panel"><div class="head" style="align-items:baseline"><h2>${c[1]}, $ billions per quarter</h2><div class="legend"><span><span class="sw" style="background:#1D4ED8"></span>Stated in the release</span><span><span class="sw" style="border:1px dashed #6B7280"></span>Not stated</span></div></div>
+        ${barChart(ser(main), { fmt: (v) => '$' + v.toFixed(1) + 'B', title: c[1], height: 184 })}
+        <p class="small">Fiscal FY2019 Q1 to FY2025 Q4. Dashed bars are quarters where the release does not state the figure; they are left empty, never estimated.</p></section>
+      <section class="panel"><h2>${t === 'META' ? c[3] : c[5]}, % per quarter</h2>
+        ${barChart(ser(second), { fmt: (v) => v.toFixed(1) + '%', title: t === 'META' ? c[3] : c[5], height: 184 })}
+        <p class="small">${t === 'GOOGL' ? 'Orange bars below the line are quarters with an operating loss.' : 'Percent values as stated or derived from stated values.'}</p></section>
+      <div class="panel" style="flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px 24px;padding:14px 18px"><b>Latest source</b><span>${NAMES[t]} release filed ${esc(src[t].filed)}</span><a href="${esc(src[t].url)}">Open the SEC filing</a><span class="small">Every value keeps the exact sentence or table row it came from (dev.quarterly_product_kpis).</span></div>`;
+  }
+
+  function funds() {
+    const sec = state.sec, order = ['MSFT', 'AMZN', 'GOOGL', 'GOOG', 'META', 'NVDA'];
+    const s = D.funds_summary.find((x) => x.t === sec), both = s.up + s.down + s.same;
+    const flagged = ['JPMORGAN CHASE & CO', 'J. Stern & Co. LLP'];
+    const nm = { MSFT: 'Microsoft', AMZN: 'Amazon', GOOGL: 'Alphabet Class A', GOOG: 'Alphabet Class C', META: 'Meta', NVDA: 'NVIDIA' };
+    const sh = (v) => (v > 0 ? '+' : '-') + (Math.abs(v) >= 1e6 ? (Math.abs(v) / 1e6).toFixed(1) + 'M' : Math.round(Math.abs(v) / 1e3) + 'K');
+    const rows = D.funds_top[sec].map((r) => ({ name: r[0].replace(/\\+$/, ''), v: r[1], flag: flagged.includes(r[0]) }));
+    const list = (title, rs) => `<section class="panel"><h2>${title}</h2><table><thead><tr><th scope="col">Fund manager</th><th scope="col">Change in shares</th></tr></thead><tbody>${rs.map((r) => `<tr><td>${esc(r.name)}${r.flag ? '<span class="flag">Check filing</span>' : ''}</td><td class="mono">${sh(r.v)}</td></tr>`).join('')}</tbody></table></section>`;
+    const f = (x) => x.toLocaleString('en-US');
+    return `
+      <div class="head"><div><h1>Are funds buying or selling?</h1><p class="sub">Share counts reported by large investment funds on Form 13F, last quarter of 2025 against the quarter before.</p></div>
+      <div class="pills" role="group" aria-label="Security">${pills(order.map((k) => ({ key: k, label: k })), sec, 'sec')}</div></div>
+      <div class="grid g4">
+        <div class="card"><div class="lab">Funds that added</div><div class="val">${f(s.up)}</div><div class="note">${(s.up / both * 100).toFixed(0)}% of ${f(both)} holding ${nm[sec]} in both quarters</div></div>
+        <div class="card"><div class="lab">Funds that cut</div><div class="val">${f(s.down)}</div><div class="note">${(s.down / both * 100).toFixed(0)}% of funds holding in both quarters</div></div>
+        <div class="card"><div class="lab">New positions</div><div class="val">${f(s.new)}</div><div class="note">Held at Dec 31 but not at Sep 30</div></div>
+        <div class="card"><div class="lab">Exited</div><div class="val">${f(s.exited)}</div><div class="note">Held at Sep 30 but not at Dec 31</div></div></div>
+      <section class="panel"><h2>Share of funds adding, by security</h2>
+        ${order.map((k) => { const x = D.funds_summary.find((y) => y.t === k), n = x.up + x.down + x.same; return `<div class="hbar" style="grid-template-columns:90px minmax(0,1fr) 160px"><span class="mono" style="font-weight:${k === sec ? 700 : 400}">${k}</span><div style="display:flex;height:22px;border-radius:4px;overflow:hidden;background:#EEF0F3"><div style="width:${(x.up / n * 100).toFixed(1)}%;background:#1D4ED8"></div><div style="width:${(x.same / n * 100).toFixed(1)}%;background:#CBD5E1"></div><div style="width:${(x.down / n * 100).toFixed(1)}%;background:#EA580C"></div></div><span style="font-size:13px">${(x.up / n * 100).toFixed(0)}% added, ${(x.down / n * 100).toFixed(0)}% cut</span></div>`; }).join('')}
+        <div class="legend"><span><span class="sw" style="background:#1D4ED8"></span>Added shares</span><span><span class="sw" style="background:#CBD5E1"></span>Unchanged</span><span><span class="sw" style="background:#EA580C"></span>Cut shares</span></div></section>
+      <div class="grid g2">${list('Largest increases, ' + sec, rows.filter((r) => r.v > 0))}${list('Largest decreases, ' + sec, rows.filter((r) => r.v < 0).reverse())}</div>
+      <div class="warn"><b>Check filing:</b> this manager's change is far larger than a normal quarterly trade and appears for most of the five companies, so it may come from a change in how the firm files rather than real buying or selling. It has not been verified yet. Counts are shares as reported, not adjusted for splits, and cover only managers that file Form 13F. Source view: dev.f13_quarterly_changes.</div>`;
+  }
+
+  function ask() {
+    const kpi = { NVDA: ['Data Center revenue', '$35.6B', '+93.5% against the same quarter a year earlier'], MSFT: ['Azure revenue growth', '39%', 'Microsoft Cloud revenue $46.7B in the same quarter'], GOOGL: ['Google Cloud revenue', '$17.7B', '+47.8% against the same quarter a year earlier'], AMZN: ['AWS revenue', '$35.6B', '+23.6% against the same quarter a year earlier'] };
+    const res = ['NVDA', 'MSFT', 'GOOGL', 'AMZN'].map((t) => D.passages.find((p) => p.t === t)).filter((p) => state.filter === 'All' || p.t === state.filter);
+    return `
+      <div class="warn">Preview of a planned feature. The passages below are real sentences from the stored releases; the search by meaning (vector search) is not built yet.</div>
+      <div><h1>Do management's words match the numbers?</h1><p class="sub">Ask a question in plain words. Each answer is a passage from an SEC filing, with its link, shown next to the measured KPI it talks about.</p></div>
+      <form class="panel" style="flex-direction:row;flex-wrap:wrap;gap:10px;padding:14px 16px" onsubmit="return false"><label for="q" class="sr">Question</label><input id="q" type="search" value="What did management say about AI demand in the latest quarter?" style="flex:1 1 420px;height:48px;padding:0 14px;border:1px solid #C7CED9;border-radius:8px;font:inherit"><button type="submit" style="height:48px;padding:0 20px;border:0;border-radius:8px;background:#111827;color:#fff;font:inherit;font-weight:600">Search filings</button></form>
+      <div class="pills" role="group" aria-label="Company filter"><span class="small" style="align-self:center">Company</span>${pills(['All', 'MSFT', 'AMZN', 'GOOGL', 'NVDA'].map((k) => ({ key: k, label: k })), state.filter, 'filter')}</div>
+      ${res.map((p) => `<article class="panel result"><div style="display:flex;flex-direction:column;gap:8px"><div class="small"><b class="mono" style="color:#111827">${p.t}</b> · ${NAMES[p.t]} earnings release · Filed ${esc(p.filed)}</div><blockquote>${esc(p.text)}</blockquote><a href="${esc(p.url)}" style="font-size:13px">Open the filing on SEC EDGAR</a></div><div class="kpibox"><div class="small" style="text-transform:uppercase;letter-spacing:.04em">Measured: ${kpi[p.t][0]}</div><div class="val mono" style="font-size:26px;font-weight:700">${kpi[p.t][1]}</div><div style="font-size:13px">${kpi[p.t][2]}</div><a href="#products" data-product-goto="${p.t}" style="font-size:13px">See the product trend</a></div></article>`).join('')}
+      <section class="panel"><h2>How it will work</h2><ol style="margin:0;padding-left:20px;font-size:14px;color:#374151"><li>Each stored release is split into short passages.</li><li>Each passage becomes a vector, a list of numbers that captures its meaning, indexed with MongoDB Atlas Vector Search.</li><li>A question is turned into a vector the same way, and the closest passages are returned with their links.</li><li>Each passage is paired with the KPI it mentions from final.product_kpis_quarterly.</li></ol></section>`;
+  }
+
+  const VIEWS = { overview: overview, company: company, products: products, funds: funds, ask: ask };
+  function render() {
+    const view = (location.hash || '#overview').slice(1);
+    const fn = VIEWS[view] || overview;
+    app.innerHTML = fn();
+    document.querySelectorAll('nav.main a').forEach((a) => a.setAttribute('aria-current', a.getAttribute('href') === '#' + (VIEWS[view] ? view : 'overview') ? 'page' : 'false'));
+  }
+  app.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-metric],[data-ticker],[data-cmetric],[data-period],[data-product],[data-sec],[data-filter],[data-goto],[data-product-goto]');
+    if (!b) return;
+    const ds = b.dataset;
+    if (ds.goto) { state.ticker = ds.goto; return; }
+    if (ds.productGoto) { state.product = ds.productGoto; return; }
+    if (ds.metric) state.metric = ds.metric;
+    if (ds.ticker) state.ticker = ds.ticker;
+    if (ds.cmetric) state.cmetric = Number(ds.cmetric);
+    if (ds.period) state.period = ds.period;
+    if (ds.product) state.product = ds.product;
+    if (ds.sec) state.sec = ds.sec;
+    if (ds.filter) state.filter = ds.filter;
+    render();
+  });
+  window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+  render();
+})();
+</script>
+</body>
+</html>
