@@ -72,6 +72,22 @@ def mongo_usd_concepts(ticker, tags):
         return {doc["tag"]: doc["concept"]["units"].get("USD", []) for doc in documents}
 
 
+def mongo_unit_concepts(ticker: str, taxonomy: str, tags, unit: str) -> dict:
+    """Facts in one unit (e.g. USD/shares, shares) from the newest completed snapshot."""
+    with mongo_client() as client:
+        db = client.get_default_database("stock_intelligence")
+        latest = db.companyfacts_snapshots.find_one(
+            {"ticker": ticker}, sort=[("acquired_at", -1), ("_id", -1)]
+        )
+        if latest is None:
+            raise ValueError(f"No completed SEC snapshot for {ticker}")
+        documents = db.companyfacts_concepts.find(
+            {"_id": {"$in": [f"{latest['_id']}/{taxonomy}/{tag}" for tag in tags]}},
+            {"tag": 1, f"concept.units.{unit}": 1},
+        )
+        return {doc["tag"]: doc["concept"]["units"].get(unit, []) for doc in documents}
+
+
 def mongo_revenue_concepts(ticker, tags):
     return mongo_usd_concepts(ticker, tags)
 
