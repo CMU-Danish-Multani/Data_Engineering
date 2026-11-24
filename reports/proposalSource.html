@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stock Intelligence for AI Infrastructure and Banking</title>
+<style>
+  @page { size: letter; margin: 0.6in 0.7in; }
+  * { box-sizing: border-box; }
+  body { font-family: "Times New Roman", Times, serif; font-size: 10.5pt; line-height: 1.24; color: #000; margin: 0; }
+  body.m1 .m2only, body.m2 .m1only { display: none; }  a { color: #1a4fa0; }
+  .course { text-align: center; font-weight: bold; font-size: 9.5pt; letter-spacing: 0.06em; margin: 0; }
+  h1 { text-align: center; font-size: 13pt; letter-spacing: 0.04em; margin: 6px 0 2px; }
+  .sub { text-align: center; font-style: italic; margin: 0 0 8px; }
+  table { border-collapse: collapse; width: 100%; break-inside: avoid; }
+  th, td { border: 1px solid #000; padding: 3px 6px; vertical-align: top; text-align: left; }
+  th { background: #efefef; font-weight: bold; }
+  .brief { border: 1px solid #000; padding: 6px 10px; margin: 8px 0 2px; }
+  .brief b.lead { display: block; margin-bottom: 2px; }
+  h2 { font-size: 11pt; margin: 9px 0 3px; padding-bottom: 2px; border-bottom: 1px solid #000; }
+  p { margin: 0 0 5px; text-align: justify; }
+  .ps { border-left: 3px solid #000; background: #f4f4f4; padding: 4px 8px; margin: 4px 0 5px; }
+  .caption { font-style: italic; margin: 3px 0 6px; }
+  figure { margin: 6px 0 0; break-inside: avoid; }
+  svg { width: 100%; height: auto; display: block; }
+  .grid td, .grid th { font-size: 9.5pt; }
+  .keep { break-inside: avoid; }
+  table.split { break-inside: auto; }
+  table.split tr { break-inside: avoid; }
+  .caption.above { margin: 2px 0 3px; }
+</style>
+</head>
+<body class="m1">
+
+<p class="course">95-815 DATA ENGINEERING · FINAL PROJECT · <span class="m1only">MILESTONE 1 PROPOSAL</span><span class="m2only">MILESTONE 2 REPORT</span></p>
+<h1>STOCK INTELLIGENCE FOR AI INFRASTRUCTURE AND BANKING</h1>
+<p class="sub">A data pipeline and dashboard that compares companies within their own industry</p>
+
+<table class="grid">
+  <tr><th style="width:9%">Team</th><th style="width:51%">Members</th><th style="width:18%">Project manager</th><th style="width:22%">Meeting notes</th></tr>
+  <tr><td>Team 8</td><td>Anav Batra, Akshay Iyer, Mohd Danish Multani, Alan Zhou</td><td>Anav Batra</td><td><a href="https://docs.google.com/document/d/1lXb8wGagvXWI6eDV1wB0E36veDIipPSqC3Tmnh4Q4KQ/edit?tab=t.0">Team Google Doc</a></td></tr>
+</table>
+
+<div class="brief">
+  <b class="lead">Summary</b>
+  We will build a Stock Intelligence Dashboard that enables retail investors to compare publicly listed AI infrastructure companies and banks using industry-specific financial metrics, institutional investment activity, and management commentary. A data pipeline will integrate nine public datasets from seven providers, covering structured tables, semi-structured JSON and unstructured text, and store each in the system that fits its shape: PostgreSQL, MongoDB or Amazon S3. By centralizing this information, the dashboard will help retail investors stay informed about financial performance, track changes in company fundamentals, compare industry peers, check whether management's words match the numbers, and identify potential investment opportunities.
+</div>
+
+<h2>Background and Problem Statement</h2>
+<p>Retail investors often struggle to stay up to date with the financial performance of companies across industries. Companies regularly publish financial information through SEC filings, earnings reports and other public sources, but this information is scattered across different platforms, reported in different formats and updated at different intervals. For example, companies like Microsoft, Google, Meta and Amazon are investing billions of dollars in AI infrastructure, and investors need to track capital expenditure, revenue growth, operating margins and free cash flow to understand whether these investments are accompanied by improving financial performance. Similarly, investors evaluating banks need to monitor loan growth, net interest margins and loan losses to understand their financial health as interest rates change. The relevant information also sits outside filings, in regulator databases, economic statistics, earnings calls and consumer reports. Although all of it is public, investors must gather and compare it by hand, which makes it time-consuming to track changes in fundamentals, compare companies within an industry, and identify improving or deteriorating performance.</p>
+<p class="ps"><b>Problem statement.</b> How can retail investors compare companies using financial performance, institutional investment activity, and qualitative information?</p>
+
+<h2>Project Goal</h2>
+<p>Our goal is to build a Stock Intelligence Dashboard that consolidates key financial metrics across two industries, <b>AI infrastructure</b> and <b>banking</b>. For AI infrastructure it starts with five companies, Microsoft, Alphabet (Google), Amazon, Meta and NVIDIA, tracked at both quarterly and annual frequency; for banks it tracks loan growth, net interest margin and loan losses. It will compare each company against its industry peers, show how performance changes over time, and show how major institutional investors' reported holdings are shifting.</p>
+
+<h2>Key Metrics by Industry</h2>
+<p>Each industry is judged on different figures, so the dashboard uses a separate set of key performance indicators (KPIs) for each, plus a shared set that applies to both. For AI infrastructure we will track ten KPIs per company. Seven are standardized financial KPIs that allow a like for like comparison across all five companies. Three are company-specific product KPIs that reflect each company's core business and how it makes money, such as Azure revenue growth (Microsoft), AWS revenue growth (Amazon), advertising revenue growth (Meta) and Data Center revenue growth (NVIDIA); these explain the business drivers behind the financial results.</p>
+<table class="grid">
+  <tr><th style="width:18%">Industry</th><th style="width:52%">Key metrics</th><th style="width:30%">Main sources</th></tr>
+  <tr><td>AI infrastructure, standardized (7)</td><td>Revenue, revenue growth, capital expenditure, capital expenditure growth, capital expenditure as a percentage of revenue, operating margin, free cash flow (operating cash flow minus capital expenditure)</td><td>SEC 10-K and 10-Q financials, Census data center construction</td></tr>
+  <tr><td>AI infrastructure, product (3 per company)</td><td>Business line growth, for example Azure (Microsoft), AWS (Amazon), Google Cloud (Alphabet), advertising (Meta), Data Center (NVIDIA)</td><td>Segment notes in SEC filings, 8-K earnings releases</td></tr>
+  <tr><td>Banking</td><td>Loan growth, deposits, loan to deposit ratio, net interest margin, net charge off rate (share of loans written off), efficiency ratio (costs per dollar of revenue), return on equity</td><td>SEC 10-K and 10-Q financials, FDIC bank financials</td></tr>
+  <tr><td>Both</td><td>Change in institutional ownership, stock return against industry peers, interest rates, management language in filings and earnings calls, consumer complaint volume and themes (banks)</td><td>SEC 13F, stock prices, FRED, SEC filing text, earnings call transcripts, CFPB complaints</td></tr>
+</table>
+<p class="caption">Table 1. Key metrics for each industry and where they come from.</p>
+<p>Product KPIs need a different route from the standardized ones. The SEC company facts API carries only whole-company totals, not breakdowns by segment or product, so product figures will be extracted from the segment notes in the filings and from 8-K earnings releases. Some are reported only as a growth percentage rather than a dollar amount; Microsoft, for example, mainly reports Azure as a percentage growth rate.</p>
+
+<div class="keep">
+<h2>Dashboard Design</h2>
+<p>The dashboard provides both industry-level comparisons and company-level analysis, so investors can evaluate financial performance, identify trends and understand product-level growth.</p>
+<table class="grid">
+  <tr><th style="width:20%">Dashboard</th><th style="width:38%">Purpose</th><th style="width:42%">Key visualizations</th></tr>
+  <tr><td>1. Industry Overview</td><td>Compare the financial performance of all companies in an industry and identify industry trends</td><td>Seven standardized KPI comparison charts, peer ranking table, quarterly and annual toggle</td></tr>
+  <tr><td>2. Company Deep Dive</td><td>Track an individual company's financial performance over time</td><td>Ten KPI summary cards, seven financial KPI trend charts, three product KPI trend charts</td></tr>
+  <tr><td>3. Product Performance</td><td>Understand the product-level drivers of each company's growth and monetization</td><td>Company-specific product charts, with side by side comparisons only where metrics are comparable (for example AWS against Google Cloud against Azure growth)</td></tr>
+</table>
+<p class="caption">Table 2. Dashboard views and what each shows.</p>
+</div>
+<p>At the industry level, standardized KPIs are compared with bar charts, line charts and ranking tables. At the company level, investors select a company and switch between quarterly and annual views to examine historical trends. Product KPIs are mainly shown one company at a time, to avoid misleading comparisons between different business models. Banks use the same Industry Overview and Company Deep Dive views with the banking metrics in Table 1.</p>
+
+<div class="keep">
+<h2>Research Questions</h2>
+<p>The questions below are examples of what the integrated data can answer; the dashboard is designed to support similar questions as the project develops.</p>
+<p><b>Question 1. How have fundamentals changed over the past five years?</b> Which AI infrastructure companies show the strongest revenue growth, operating margins and free cash flow relative to capital expenditure, and does their spending track national data center construction? Which banks grew loans fastest without rising loan losses, how did the 2022 to 2023 rate increases change their net interest margins, and did these leaders outperform their peers on stock return?</p>
+</div>
+<p><b>Question 2. Where is institutional money moving?</b> Which companies saw the largest increases or decreases in holdings among the largest hedge funds, ranked by 13F portfolio value, over the past four quarters, and are institutions adding to companies with improving fundamentals?</p>
+<p><b>Question 3. Do words match the numbers?</b> Does management discussion of AI investment, in filings and on earnings calls, track actual capital expenditure and free cash flow? For banks, do credit risk language in filings and the volume and themes of consumer complaints rise before loan losses do?</p>
+
+<div class="keep">
+<h2>Data Sources and Storage</h2>
+<p>Storage follows the shape of the data. Flat tables go to PostgreSQL, document style JSON whose fields vary from record to record goes to MongoDB, and bulk files and text go to Amazon S3. Raw data is kept exactly as downloaded, separate from the cleaned tables.</p>
+</div>
+<table class="grid split">
+  <thead><tr><th style="width:22%">Source (provider)</th><th style="width:20%">Data type and format</th><th style="width:25%">Access</th><th style="width:11%">Raw storage</th><th style="width:22%">How it is kept up to date</th></tr></thead>
+  <tr><td>10-K and 10-Q financials, XBRL company facts (SEC)</td><td>Semi-structured, nested JSON per company</td><td>Free API and nightly bulk zip, no key; at most 10 requests per second with a contact in the request header</td><td>Amazon S3</td><td>Nightly: SEC rebuilds the bulk zip each night; we download it on a schedule</td></tr>
+  <tr><td>10-K text and 8-K earnings releases (SEC)</td><td>Unstructured, HTML text</td><td>Free from the EDGAR archives, same access rules</td><td>Amazon S3</td><td>Daily: scan the EDGAR daily index for new 10-K and 8-K filings by tracked companies</td></tr>
+  <tr><td>Earnings call transcripts (public dataset on Hugging Face)</td><td>Unstructured text in Parquet files, with ticker, quarter and year</td><td>Free download; license marked "other", so reuse terms will be confirmed before use</td><td>Amazon S3</td><td>One-time load of a fixed snapshot; reloaded only if a new version is published</td></tr>
+  <tr><td>Form 13F institutional holdings (SEC)</td><td>Structured, seven tab delimited tables per period</td><td>Free zips covering July 2013 to August 2026; the latest is 96 MB</td><td>PostgreSQL</td><td>Quarterly: load each new period file after it is published</td></tr>
+  <tr><td>Bank financials, BankFind Suite (FDIC)</td><td>Semi-structured, JSON, many fields per bank</td><td>Free API, JSON or CSV, no key currently required</td><td>MongoDB</td><td>Quarterly: request the newest quarter of bank financials</td></tr>
+  <tr><td>Consumer Complaint Database (CFPB)</td><td>Semi-structured, records with free-text narratives</td><td>Free full CSV download and API; generally updated daily</td><td>MongoDB</td><td>Daily: request complaints received since the last run</td></tr>
+  <tr><td>Interest rates, FRED (St. Louis Fed)</td><td>Structured time series, JSON API</td><td>Free API, key required</td><td>PostgreSQL</td><td>Daily: request observations newer than the last stored date</td></tr>
+  <tr><td>Data center construction spending (U.S. Census)</td><td>Structured, monthly tables</td><td>Free; data center series available from January 2014</td><td>PostgreSQL</td><td>Monthly: reload the latest release, which also revises recent months</td></tr>
+  <tr><td>Daily stock prices (market data API, to be selected)</td><td>Structured, CSV</td><td>To be selected; some free tiers allow only about 25 requests per day</td><td>PostgreSQL</td><td>Daily: request the latest closing prices after market close</td></tr>
+</table>
+<p class="caption">Table 3. Planned data sources: nine datasets from seven providers, three data types and three storage systems.</p>
+<h2>How the Data Stays Up to Date</h2>
+<p>None of these sources publishes data continuously: they update nightly, daily, monthly or quarterly, as Table 3 shows. Streaming would therefore add cost and complexity without making the data any fresher, so we will use scheduled batch loading instead. The pipeline starts with a one-time historical backfill for fiscal years 2019 to 2025. After that, a scheduler (cron, or Apache Airflow if time allows) runs one job per source on that source's own cadence, and each job requests only records newer than the last successful run. No manual downloads are needed once the jobs are set up.</p>
+<p>Every run writes its raw files to a new dated folder or batch, logs how many records it loaded, and is safe to repeat: running the same job twice does not create duplicates. If a download fails or returns an empty or malformed file, the job stops before writing and is retried on the next run, so a bad batch never reaches the cleaned tables.</p>
+<p><b>Why each storage system.</b> PostgreSQL holds the flat, tabular sources because they load directly into tables and the course requires structured data there; every raw column is stored as text with no constraints, so no problematic record is rejected at load time. MongoDB holds FDIC and CFPB records because each is a self-contained document whose fields vary from record to record, and complaint narratives are long free text. Amazon S3 holds the SEC bulk files, filing text and call transcripts because they are large, have no fixed schema, and are written once and read in batches. Figure 1 shows the full flow.</p>
+
+<div class="m2only keep">
+<h2>Processing: Exploration, Cleaning and Integration</h2>
+<p>Every source is profiled on arrival: row counts, missing values, duplicates, value ranges and units. Cleaning runs in SQL for PostgreSQL data and in aggregation pipelines for MongoDB data, and every quality issue is logged with its decision. The hardest step is integration: the same company appears as a CIK number in SEC filings, a ticker in prices and call transcripts, a CUSIP code in 13F holdings, a certificate number at the FDIC and a free-text name in consumer complaints.</p>
+</div>
+
+<figure>
+<svg viewBox="0 0 760 242" role="img" aria-label="Pipeline from four kinds of sources into PostgreSQL, MongoDB and S3, then processing, a star schema and the dashboard" font-family="Times New Roman, Times, serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#444"/></marker>
+  </defs>
+  <g font-size="11" font-weight="bold" fill="#555" letter-spacing="0.6">
+    <text x="6" y="20">SOURCES BY DATA TYPE</text>
+    <text x="206" y="20">RAW STORAGE</text>
+    <text x="354" y="20">PROCESSING</text>
+    <text x="552" y="20">SERVING</text>
+    <text x="668" y="20">CONSUMPTION</text>
+  </g>
+  <g fill="none" stroke="#444" stroke-width="1.2">
+    <path d="M176 52H204" marker-end="url(#arr)"/>
+    <path d="M176 104H204" marker-end="url(#arr)"/>
+    <path d="M176 156H204" marker-end="url(#arr)"/>
+    <path d="M176 208H204" marker-end="url(#arr)"/>
+    <path d="M326 52H352" marker-end="url(#arr)"/>
+    <path d="M326 104H352" marker-end="url(#arr)"/>
+    <path d="M326 182H352" marker-end="url(#arr)"/>
+    <path d="M524 130H550" marker-end="url(#arr)"/>
+    <path d="M652 130H666" marker-end="url(#arr)"/>
+  </g>
+  <g stroke="#000" stroke-width="1" fill="#fff">
+    <rect x="6" y="30" width="170" height="44" rx="3"/>
+    <rect x="6" y="82" width="170" height="44" rx="3"/>
+    <rect x="6" y="134" width="170" height="44" rx="3"/>
+    <rect x="6" y="186" width="170" height="44" rx="3"/>
+    <rect x="206" y="30" width="120" height="44" rx="3"/>
+    <rect x="206" y="82" width="120" height="44" rx="3"/>
+    <rect x="206" y="134" width="120" height="96" rx="3"/>
+    <rect x="354" y="30" width="170" height="200" rx="3" fill="#ececec"/>
+    <rect x="552" y="30" width="100" height="200" rx="3"/>
+    <rect x="668" y="30" width="88" height="200" rx="3"/>
+  </g>
+  <g font-size="12" fill="#000">
+    <text x="14" y="48" font-weight="bold" font-size="13">Structured tables</text>
+    <text x="14" y="65" fill="#333">13F, FRED, Census, prices</text>
+    <text x="14" y="100" font-weight="bold" font-size="13">Semi-structured records</text>
+    <text x="14" y="117" fill="#333">FDIC banks, CFPB complaints</text>
+    <text x="14" y="152" font-weight="bold" font-size="13">Bulk nested JSON</text>
+    <text x="14" y="169" fill="#333">SEC XBRL company facts</text>
+    <text x="14" y="204" font-weight="bold" font-size="13">Unstructured text</text>
+    <text x="14" y="221" fill="#333">Filings, call transcripts</text>
+
+    <text x="214" y="49" font-weight="bold" font-size="13">PostgreSQL raw</text>
+    <text x="214" y="65" fill="#333">text columns</text>
+    <text x="214" y="101" font-weight="bold" font-size="13">MongoDB</text>
+    <text x="214" y="117" fill="#333">one document each</text>
+    <text x="214" y="153" font-weight="bold" font-size="13">Amazon S3</text>
+    <text x="214" y="171" fill="#333">files kept exactly</text>
+    <text x="214" y="186" fill="#333">as downloaded</text>
+
+    <text x="362" y="50" font-weight="bold" font-size="13">Explore and clean</text>
+    <text x="362" y="74">1. Profile and explore each source</text>
+    <text x="362" y="96">2. Fix types, remove duplicates</text>
+    <text x="362" y="118">3. Flatten JSON into tables</text>
+    <text x="362" y="140">4. Match company identities</text>
+    <text x="362" y="162">5. Extract text signals</text>
+    <text x="362" y="184">6. Log every quality issue</text>
+    <text x="362" y="216" font-style="italic" fill="#333">Critical issues stop the load</text>
+
+    <text x="560" y="50" font-weight="bold" font-size="13">Star schema</text>
+    <text x="560" y="70">dim_company</text>
+    <text x="560" y="87">dim_date</text>
+    <text x="560" y="104">dim_metric</text>
+    <text x="560" y="126">fact_financials</text>
+    <text x="560" y="143">fact_bank</text>
+    <text x="560" y="160">fact_holdings</text>
+    <text x="560" y="177">fact_macro</text>
+    <text x="560" y="194">fact_complaints</text>
+    <text x="560" y="211">fact_text</text>
+
+    <text x="676" y="50" font-weight="bold" font-size="13">Dashboard</text>
+    <text x="676" y="70">Industry</text>
+    <text x="676" y="84">overview</text>
+    <text x="676" y="104">Company</text>
+    <text x="676" y="118">deep dive</text>
+    <text x="676" y="138">Product</text>
+    <text x="676" y="152">performance</text>
+    <text x="676" y="186" font-weight="bold">Answers</text>
+    <text x="676" y="204">Q1, Q2, Q3</text>
+  </g>
+</svg>
+<p class="caption">Figure 1. Planned pipeline. Scheduled batch jobs load each data type into the store that fits it; the data is then explored and cleaned in later layers, and every number on the dashboard can be traced back to its source file.</p>
+</figure>
+
+<div class="m2only">
+<h2>Expected Data Quality Issues</h2>
+<p>Several issues are already known from the source documentation and the structure of the data. Each will be measured during exploration and recorded in the quality log with the number of rows affected.</p>
+<p class="caption above">Table 4. Data quality issues expected before ingestion, and how each will be handled. Critical issues, such as an empty download or a missing required column, stop the load.</p>
+<table class="grid split">
+  <thead><tr><th style="width:44%">Issue</th><th style="width:16%">Source</th><th style="width:40%">Planned handling</th></tr></thead>
+  <tr><td>The same figure appears in several filings (a 10-Q, the 10-K, then an amendment)</td><td>SEC XBRL</td><td>Keep the latest filed value for each company, metric and period</td></tr>
+  <tr><td>Quarterly cash flow figures, including capital expenditure, are reported year to date</td><td>SEC XBRL</td><td>Derive single quarter values by subtraction</td></tr>
+  <tr><td>Companies report the same metric under different XBRL tags</td><td>SEC XBRL</td><td>Map every tag to one standard metric in a metric dictionary</td></tr>
+  <tr><td>Product KPIs are reported differently: some are tagged segment figures, others appear only as a growth percentage in an earnings release</td><td>SEC filings</td><td>Record the source and unit of every product value; compare across companies only where the metrics measure the same thing</td></tr>
+  <tr><td>Fiscal years do not match calendar years (Microsoft's ends June 30)</td><td>SEC XBRL</td><td>Align all companies on period end date</td></tr>
+  <tr><td>Holding values were reported in thousands of dollars before January 3, 2023, and in whole dollars after</td><td>SEC 13F</td><td>Rescale earlier values before comparing periods</td></tr>
+  <tr><td>Amendments are included as filed and can repeat holdings</td><td>SEC 13F</td><td>Keep the latest filing per manager per period</td></tr>
+  <tr><td>Holdings carry CUSIP codes, not CIK numbers or tickers</td><td>SEC 13F</td><td>Match through a company identity table; log unmatched codes</td></tr>
+  <tr><td>A bank holding company reports to the SEC while its banks report to the FDIC, so totals can differ</td><td>SEC, FDIC</td><td>Report the gap rather than force a match</td></tr>
+  <tr><td>Complaint company names differ from SEC names, and many complaints have no narrative</td><td>CFPB</td><td>Normalize names and map them to CIK; analyze narratives only where present</td></tr>
+  <tr><td>Transcript coverage varies by company and quarter, and speaker labels may be inconsistent</td><td>Transcripts</td><td>Measure coverage per company and quarter; compare only periods present for all peers</td></tr>
+  <tr><td>Recent months are revised with each new release</td><td>Census</td><td>Reload the latest release and record which vintage was used</td></tr>
+  <tr><td>Raw prices jump on stock split dates</td><td>Prices</td><td>Use split adjusted prices and check known split dates</td></tr>
+  <tr><td>Missing values in any source</td><td>All</td><td>Keep them as null, never zero, and exclude them from that metric</td></tr>
+</table>
+</div>
+
+<h2>Significance and Beneficiaries</h2>
+<p>Retail investors gain the most: one place to compare companies on the metrics each industry is judged by, built only from public data, without manually researching multiple sources. Students, investment clubs and financial journalists gain the same free, traceable view. The first question shows whether the AI build-out is generating returns and which banks are lending safely, the second shows whether professional money agrees, and the third flags companies whose narrative and numbers diverge, an early warning sign worth checking before investing.</p>
+
+<h2>Team Motivation</h2>
+<p>We chose this problem because of our interest in financial markets and the opportunity to apply data engineering to a practical challenge faced by retail investors. It exercises every stage of the course on real data of three different types, stored in three different systems and joined across five kinds of company identifier.</p>
+
+<h2>Future Scope</h2>
+<p>Once the two-industry version works, we plan to add more industries through the same pipeline by adding each industry's metrics to a shared metric dictionary rather than writing new code. We also plan a retrieval-augmented generation (RAG) assistant that answers questions like the ones above in plain language: it would retrieve the relevant figures from the cleaned tables and passages from filings, call transcripts and complaints, reason over them, and cite its sources, so investors no longer have to check each detail by hand.</p>
+
+</body>
+</html>

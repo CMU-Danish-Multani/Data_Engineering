@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Stock Intelligence HLD</title>
+<style>
+  @page { size: letter landscape; margin: 0.5in; }
+  body { font-family: Helvetica, Arial, sans-serif; color: #1a1a1a; margin: 0; }
+  h1 { font-size: 17pt; margin: 0 0 2px; }
+  .byline { color: #555; font-size: 9.5pt; margin: 0 0 12px; }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { font-family: Helvetica, Arial, sans-serif; }
+  ul { font-size: 9.5pt; color: #333; margin: 10px 0 0; padding-left: 18px; columns: 2; column-gap: 28px; }
+  li { margin-bottom: 4px; break-inside: avoid; }
+</style></head><body>
+<h1>Stock Intelligence Dashboard: High-Level Design</h1>
+<p class="byline">Team 8: Mohd Danish Multani, Anav Batra, Akshay Iyer, Alan Zhou &middot; November 18, 2026</p>
+<svg viewBox="0 0 700 330" role="img" aria-label="High-level design: sources, ingestion, S3, PostgreSQL for numbers, MongoDB for text, dashboard and assistant">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#777"/></marker></defs>
+  <g font-size="8.5" font-weight="700" fill="#777"><text x="4" y="14">GET THE DATA</text><text x="262" y="14">KEEP THE ORIGINAL</text><text x="382" y="14">ORGANIZE BY KIND</text><text x="592" y="14">USE IT</text></g>
+  <rect x="2" y="24" width="122" height="214" rx="6" fill="#f1f2f4" stroke="#6b7280" stroke-width="1.2"/>
+  <g fill="#fff" stroke="#aaa"><rect x="10" y="46" width="106" height="62" rx="4"/><rect x="10" y="116" width="106" height="46" rx="4"/><rect x="10" y="170" width="106" height="46" rx="4"/></g>
+  <rect x="142" y="86" width="100" height="90" rx="6" fill="#f1f2f4" stroke="#6b7280" stroke-width="1.2"/>
+  <rect x="260" y="86" width="100" height="90" rx="6" fill="#fbf3ea" stroke="#b5651d" stroke-width="1.2"/>
+  <rect x="380" y="24" width="180" height="108" rx="6" fill="#eef7f1" stroke="#2d7d5a" stroke-width="1.5"/>
+  <rect x="380" y="152" width="180" height="96" rx="6" fill="#fbedf3" stroke="#a3366b" stroke-width="1.5"/>
+  <rect x="590" y="36" width="108" height="76" rx="6" fill="#fff" stroke="#1f5fbf" stroke-width="1.5"/>
+  <rect x="590" y="160" width="108" height="76" rx="6" fill="#fff" stroke="#1f5fbf" stroke-width="1.5"/>
+  <rect x="142" y="258" width="418" height="38" rx="6" fill="#f4effb" stroke="#7a4fb3" stroke-width="1.2"/>
+  <g fill="none" stroke="#777" stroke-width="1.3">
+    <path d="M124 131H140" marker-end="url(#ah)"/><path d="M242 131H258" marker-end="url(#ah)"/>
+    <path d="M360 112L378 80" marker-end="url(#ah)"/><path d="M360 150L378 190" marker-end="url(#ah)"/>
+    <path d="M430 152V134" marker-end="url(#ah)"/>
+    <path d="M560 78H574"/><path d="M560 195H574"/><path d="M574 74V198"/>
+    <path d="M574 74H588" marker-end="url(#ah)"/><path d="M574 198H588" marker-end="url(#ah)"/>
+  </g>
+  <g font-size="9.3" fill="#1a1a1a">
+    <text x="10" y="39" font-weight="700">Sources (6 feeds)</text>
+    <text x="16" y="61" font-weight="700">SEC EDGAR</text><text x="16" y="75" fill="#555">financials (XBRL),</text><text x="16" y="88" fill="#555">8-K releases,</text><text x="16" y="101" fill="#555">13F holdings</text>
+    <text x="16" y="131" font-weight="700">Yahoo Finance</text><text x="16" y="145" fill="#555">daily prices</text>
+    <text x="16" y="185" font-weight="700">Alpha Vantage</text><text x="16" y="199" fill="#555">call transcripts</text>
+    <text x="10" y="232" fill="#999" font-size="8">section 2</text>
+    <text x="150" y="104" font-weight="700">Ingestion</text><text x="150" y="119" fill="#555">one Python job</text><text x="150" y="132" fill="#555">per feed, run by</text><text x="150" y="145" fill="#555">cron, new data only</text><text x="150" y="168" fill="#999" font-size="8">section 2</text>
+    <text x="268" y="104" font-weight="700">Amazon S3</text><text x="268" y="119" fill="#555">every file kept</text><text x="268" y="132" fill="#555">exactly as</text><text x="268" y="145" fill="#555">downloaded</text><text x="268" y="168" fill="#999" font-size="8">section 3</text>
+    <text x="388" y="40" font-weight="700">PostgreSQL: the numbers</text>
+    <text x="388" y="56" fill="#555">raw -&gt; staging -&gt; core -&gt; serving</text>
+    <text x="388" y="71" fill="#555">financials, prices, fund holdings</text>
+    <text x="388" y="85" fill="#555">cleaned into a star schema</text>
+    <text x="388" y="99" fill="#555">16 KPIs served as views</text>
+    <text x="388" y="124" fill="#999" font-size="8">sections 3, 4, 6</text>
+    <text x="436" y="146" fill="#777" font-size="8">product figures from releases</text>
+    <text x="388" y="168" font-weight="700">MongoDB: the text</text>
+    <text x="388" y="184" fill="#555">earnings releases, call transcripts</text>
+    <text x="388" y="198" fill="#555">passages with embeddings,</text>
+    <text x="388" y="212" fill="#555">searched by meaning</text><text x="388" y="226" fill="#555">(Atlas Vector Search)</text>
+    <text x="388" y="242" fill="#999" font-size="8">sections 3, 5</text>
+    <text x="598" y="54" font-weight="700">Dashboard</text><text x="598" y="70" fill="#555">KPI charts from</text><text x="598" y="83" fill="#555">PostgreSQL, quotes</text><text x="598" y="96" fill="#555">from MongoDB</text>
+    <text x="598" y="178" font-weight="700">LLM assistant</text><text x="598" y="194" fill="#555">SQL for numbers,</text><text x="598" y="207" fill="#555">vector search</text><text x="598" y="220" fill="#555">for text</text>
+    <text x="598" y="130" fill="#999" font-size="8">read-only logins</text><text x="598" y="142" fill="#999" font-size="8">section 7</text>
+    <text x="150" y="273"><tspan font-weight="700" fill="#7a4fb3">ops (in PostgreSQL):</tspan><tspan fill="#555"> run log and watermarks, quality checks, XBRL tag map.</tspan></text>
+    <text x="150" y="288" fill="#555">Every number traces back to its original S3 file (section 8).</text>
+  </g>
+  <g font-size="8.8" fill="#1a1a1a">
+    <text x="2" y="321" font-weight="700">Color key:</text>
+    <rect x="58" y="311" width="12" height="12" rx="2" fill="#f1f2f4" stroke="#6b7280" stroke-width="1.3"/><text x="75" y="321">Getting the data</text>
+    <rect x="162" y="311" width="12" height="12" rx="2" fill="#fbf3ea" stroke="#b5651d" stroke-width="1.3"/><text x="179" y="321">Stored as received</text>
+    <rect x="272" y="311" width="12" height="12" rx="2" fill="#eef7f1" stroke="#2d7d5a" stroke-width="1.3"/><text x="289" y="321">PostgreSQL: numbers</text>
+    <rect x="392" y="311" width="12" height="12" rx="2" fill="#fbedf3" stroke="#a3366b" stroke-width="1.3"/><text x="409" y="321">MongoDB: text</text>
+    <rect x="492" y="311" width="12" height="12" rx="2" fill="#fff" stroke="#1f5fbf" stroke-width="1.3"/><text x="509" y="321">Applications</text>
+    <rect x="596" y="311" width="12" height="12" rx="2" fill="#f4effb" stroke="#7a4fb3" stroke-width="1.3"/><text x="613" y="321">Operations, logs</text>
+  </g>
+</svg>
+<ul>
+  <li><b>Get the data.</b> Six feeds from SEC EDGAR, Yahoo Finance and Alpha Vantage, one Python job each, run by cron.</li>
+  <li><b>Keep the original.</b> Every file lands in S3 unchanged, so any later step can rerun without calling the APIs again.</li>
+  <li><b>Numbers in PostgreSQL.</b> Raw tables, then staging (clean and check), then a star schema, then 16 KPI views.</li>
+  <li><b>Text in MongoDB.</b> Earnings releases and call transcripts, cut into passages with embeddings for search by meaning.</li>
+  <li><b>Two retrieval databases.</b> The dashboard and the assistant read PostgreSQL for numbers and MongoDB for text, through read-only logins.</li>
+  <li><b>Traceable.</b> The ops tables log every run and quality check, so each number leads back to its source file.</li>
+</ul>
+</body></html>

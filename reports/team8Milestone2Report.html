@@ -1,0 +1,222 @@
+<!doctype html><html><head><meta charset='utf-8'><title>Team 8 Milestone 2</title><style>
+@page { size: Letter; margin: 0.5in 0.62in; }
+* { box-sizing: border-box; }
+html, body { background: #fff; }
+body { font-family: "Times New Roman", Times, serif; font-size: 10.5pt; line-height: 1.3; color: #000; margin: 0; }
+p { margin: 0 0 4pt; text-align: justify; }
+ul { margin: 0 0 5pt; padding-left: 15pt; } li { margin: 0 0 2pt; text-align: justify; }
+.eyebrow { font-size: 10.5pt; font-weight: bold; text-align: center; letter-spacing: 0.03em; margin: 0 0 6pt; }
+.title { font-size: 12.5pt; font-weight: bold; text-align: center; text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3pt; }
+.subtitle { font-size: 10.5pt; font-style: italic; text-align: center; margin: 0 0 7pt; }
+table { width: 100%; border-collapse: collapse; margin: 3pt 0 6pt; }
+th, td { border: 0.75pt solid #000; padding: 2.4pt 4.5pt; font-size: 9.5pt; line-height: 1.2; text-align: left; vertical-align: top; }
+th { font-weight: bold; background: #f2f2f2; }
+tr:nth-child(even) td { background: #fafafa; }
+.meta th, .meta td { font-size: 9.5pt; }
+.banner { border: 0.75pt solid #000; padding: 5pt 8pt; margin: 5pt 0 6pt; }
+.banner p, .banner ul { margin: 0 0 2pt; }
+.sectionhead { border-top: 1.25pt solid #000; padding-top: 5pt; margin-top: 2pt; }
+.page { page-break-before: always; }
+.sectiontitle { font-size: 11.5pt; font-weight: bold; letter-spacing: 0.03em; margin: 0 0 3pt; }
+.fhead { font-size: 10.5pt; font-weight: bold; margin: 6pt 0 2pt; }
+.cap { font-size: 9.5pt; font-style: italic; margin: 6pt 0 1pt; }
+figure { margin: 4pt 0 4pt; text-align: center; }
+figcaption { font-size: 9.5pt; font-style: italic; text-align: left; margin-top: 2pt; }
+svg { width: 100%; height: auto; max-width: 4.8in; }
+.bx { fill: #fff; stroke: #000; stroke-width: 1.1; } .fl { fill: #f2f2f2; stroke: #000; stroke-width: 1.1; }
+.pl { fill: #fff; stroke: #000; stroke-width: 1.2; stroke-dasharray: 6 4; }
+.ar { stroke: #000; stroke-width: 1.2; fill: none; } .dash { stroke-dasharray: 5 4; }
+.t { font-family: "Times New Roman", Times, serif; font-size: 14px; fill: #000; }
+.tb { font-family: "Times New Roman", Times, serif; font-size: 14px; font-weight: bold; fill: #000; }
+.ti { font-family: "Times New Roman", Times, serif; font-size: 13px; font-style: italic; fill: #000; }
+.todo { background: #fff2a8; font-weight: bold; }
+a { color: #000; }
+</style></head><body>
+<p class="eyebrow">95-815 DATA ENGINEERING · FINAL PROJECT · MILESTONE 2 · SECTION B2</p>
+<p class="title">Stock Intelligence Dashboard for AI Infrastructure</p>
+<p class="subtitle">How can retail investors easily compare AI infrastructure companies on their finances,
+valuation, products and institutional investment?</p>
+<div class="meta"><table>
+<tr><th>Team</th><th>Members</th><th>Project manager</th><th>Meeting notes</th></tr>
+<tr><td>Team 8</td><td>Mohd Danish Multani, Anav Batra, Akshay Iyer, Alan Zhou</td><td>Anav Batra</td>
+<td><a href="https://docs.google.com/document/d/1lXb8wGagvXWI6eDV1wB0E36veDIipPSqC3Tmnh4Q4KQ/edit?tab=t.0">Team Google Doc</a></td></tr>
+<tr><th>Video demo</th><td colspan="3"><span class="todo">VIDEO LINK TO BE ADDED BEFORE SUBMISSION</span></td></tr></table></div>
+
+<p class="fhead">The project in brief</p>
+<p>We are building a dashboard that compares 5 AI infrastructure companies: Microsoft, Alphabet, Amazon, Meta and
+NVIDIA. It tracks 13 KPIs (key performance indicators) in three groups: 7 financial, 3 valuation and 3 product metrics. It also
+shows how big investment funds change their holdings. All data is public, from the SEC (the U.S. regulator that holds company
+filings) and Yahoo Finance. It covers fiscal years 2019 to 2025, which is 140 company quarters.</p>
+
+<p class="fhead">The problem</p>
+<p>Company results are spread across filings, press releases and price data. Each source uses its own format, and the companies
+end their fiscal years in different months. An investor has to collect and line up these numbers by hand. Our pipeline does this
+once, and every number links back to the filing it came from.</p>
+
+<p class="fhead">Research questions</p>
+<table>
+<tr><th style="width:44%">Question</th><th style="width:24%">Source</th><th>Tables and views used</th></tr>
+<tr><td><b>Q1.</b> How have revenue growth, operating margin and free cash flow changed over five years, and is rising capital
+spending (CapEx) paying off?</td><td>SEC Company Facts (10-Q and 10-K filings)</td>
+<td>final.company_financials_quarterly, built from dev.quarterly_revenue, quarterly_capex, quarterly_operating_income,
+quarterly_operating_cash_flow</td></tr>
+<tr><td><b>Q2.</b> How do valuations (P/E, EV/Revenue, FCF yield) compare with performance, and are funds buying the companies
+that are improving?</td><td>SEC Company Facts, Yahoo Finance prices, SEC Form 13F</td>
+<td>final.valuation_quarterly, final.valuation_annual (from dev.quarterly_valuation_inputs, dev.stock_prices_daily);
+dev.f13_quarterly_changes</td></tr>
+<tr><td><b>Q3.</b> How do product lines (Azure, AWS, Google Cloud, Data Center) grow compared with the whole company, and does
+management commentary match the numbers?</td><td>SEC earnings releases (8-K, Exhibit 99.1), SEC Company Facts</td>
+<td>MongoDB earnings_releases; final.product_kpis_quarterly (from dev.quarterly_product_kpis);
+final.company_financials_quarterly</td></tr>
+</table>
+
+<div class="banner"><p><b>What changed since Milestone 1</b></p><ul>
+<li>We now cover AI infrastructure only. Banking and its sources were dropped so that every data source is used.</li>
+<li>We dropped the S3 data lake and the staging layer because of time. Raw data is kept unchanged inside the databases instead.</li>
+<li>We use earnings releases instead of call transcripts. They are official SEC filings and contain the product numbers.</li>
+</ul></div>
+
+<p class="fhead">Who benefits</p>
+<p>Retail investors, students, investment clubs and journalists get one free place to compare these companies, with every
+number traceable to its source. We chose this topic because we share an interest in financial markets, and it uses every
+stage of the course on real data.</p>
+
+<div class="page sectionhead"><p class="sectiontitle">1. DATA SOURCES, STORAGE AND KPIS</p></div>
+<p class="cap">Table 1. Our four data sources (sizes measured in our databases).</p>
+<table>
+<tr><th style="width:15%">Source</th><th style="width:31%">What it contains</th><th style="width:12%">Format</th>
+<th style="width:14%">Size</th><th style="width:19%">Stored in, and why</th><th>Answers</th></tr>
+<tr><td><b>SEC Company Facts</b><br><a href="https://www.sec.gov/edgar/sec-api-documentation">SEC API</a></td>
+<td><b>Standard numbers</b> each company tags in its 10-Q and 10-K filings: revenue, CapEx, profit, cash flow, EPS, shares, debt,
+cash. Whole-company totals only, with no product breakdown.</td>
+<td>Nested JSON (semi-structured)</td><td>5 files, 20 MB, 2,819 documents</td>
+<td><b>MongoDB.</b> Nested, differs by company; loaders read only what they need.</td><td>Q1, Q2, Q3</td></tr>
+<tr><td><b>SEC earnings releases</b><br><a href="https://www.sec.gov/edgar/search/">EDGAR</a></td>
+<td><b>Press release text</b> filed each quarter (8-K, Exhibit 99.1). It has the product numbers that Company Facts lacks (AWS,
+Azure, Google Cloud, Data Center) and management comments.</td>
+<td>HTML text (unstructured)</td><td>143 documents, 64 MB</td>
+<td><b>MongoDB.</b> Whole documents; read for product numbers, later searched.</td><td>Q3</td></tr>
+<tr><td><b>Yahoo Finance prices</b><br><a href="https://finance.yahoo.com">Yahoo chart API</a></td>
+<td><b>Daily stock prices:</b> open, high, low, close and volume for each company.</td>
+<td>JSON, one row per day (structured)</td><td>12,170 rows, 1.3 MB</td>
+<td><b>PostgreSQL.</b> Rows and columns; joined to quarters in SQL.</td><td>Q2</td></tr>
+<tr><td><b>SEC Form 13F</b><br><a href="https://www.sec.gov/data-research/sec-markets-data/form-13f-data-sets">SEC data sets</a></td>
+<td><b>Fund holdings:</b> the stocks each large investment fund reports holding every quarter.</td>
+<td>Tab-separated tables in ZIP files (structured)</td><td>4 files, 350 MB, 13,540,608 rows scanned</td>
+<td><b>PostgreSQL.</b> Related tables joined by filing ID in SQL.</td><td>Q2</td></tr>
+</table>
+
+<p class="fhead">Where the data lives, and how raw and clean are kept apart</p>
+<ul>
+<li><b>Shared cloud:</b> PostgreSQL on AWS RDS and MongoDB Atlas, used by the whole team. The data is real and large
+(13,540,608 13F rows scanned), and its messiness is kept, not cleaned before loading.</li>
+<li><b>Raw:</b> stored exactly as received, with no keys or type rules that could reject a row. MongoDB keeps the original
+documents. PostgreSQL keeps raw text rows (<i>dev.raw_stock_prices</i>, <i>dev.f13_infotable</i>) and the original ZIP files.
+Bad rows are flagged, never deleted.</li>
+<li><b>Clean:</b> tables in the <i>dev</i> schema with proper types, keys and checks (for example <i>dev.quarterly_revenue</i>).</li>
+<li><b>Final:</b> views in the <i>final</i> schema. The dashboard reads only these.</li>
+</ul>
+
+<p class="cap">Table 2. Where each KPI comes from and where it is stored.</p>
+<table>
+<tr><th style="width:34%">KPI</th><th style="width:22%">Source</th><th style="width:22%">Clean table (dev)</th><th>Final view</th></tr>
+<tr><td>1 Revenue, 2 Revenue growth, 3 CapEx, 4 CapEx growth, 5 CapEx as % of revenue, 6 Operating margin, 7 Free cash flow</td><td>SEC Company Facts</td><td>quarterly_revenue, quarterly_capex, quarterly_operating_income, quarterly_operating_cash_flow</td><td>company_financials_quarterly</td></tr>
+<tr><td>8 P/E, 9 EV/Revenue, 10 FCF yield</td><td>SEC Company Facts + Yahoo Finance prices</td><td>quarterly_valuation_inputs</td><td>valuation_quarterly, valuation_annual</td></tr>
+<tr><td>11 to 13 Product KPIs (AWS, Google Cloud, Azure, Meta apps, NVIDIA Data Center)</td><td>SEC earnings releases</td>
+<td>quarterly_product_kpis</td><td>product_kpis_quarterly</td></tr>
+<tr><td>Fund holdings (for Q2)</td><td>SEC Form 13F</td><td>f13 tables</td><td>f13_quarterly_changes</td></tr>
+</table>
+<figure><svg viewBox="0 0 960 330" xmlns="http://www.w3.org/2000/svg" role="img"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker></defs><text class="tb" x="95" y="16" text-anchor="middle">SOURCES</text><text class="tb" x="305" y="16" text-anchor="middle">RAW (AS RECEIVED)</text><text class="tb" x="520" y="16" text-anchor="middle">PROCESSED (dev)</text><text class="tb" x="720" y="16" text-anchor="middle">SERVING (final)</text><text class="tb" x="885" y="16" text-anchor="middle">USE</text><rect class="fl" x="10" y="30" width="170" height="58" rx="3"/><text class="tb" x="95.0" y="55.0" text-anchor="middle">SEC Company Facts</text><text class="t" x="95.0" y="72.0" text-anchor="middle">XBRL JSON API</text><rect class="fl" x="10" y="105" width="170" height="58" rx="3"/><text class="tb" x="95.0" y="130.0" text-anchor="middle">SEC earnings releases</text><text class="t" x="95.0" y="147.0" text-anchor="middle">8-K Exhibit 99.1 HTML</text><rect class="fl" x="10" y="180" width="170" height="58" rx="3"/><text class="tb" x="95.0" y="205.0" text-anchor="middle">Yahoo Finance prices</text><text class="t" x="95.0" y="222.0" text-anchor="middle">daily chart JSON</text><rect class="fl" x="10" y="255" width="170" height="58" rx="3"/><text class="tb" x="95.0" y="280.0" text-anchor="middle">SEC Form 13F</text><text class="t" x="95.0" y="297.0" text-anchor="middle">quarterly TSV in ZIP</text><rect class="bx" x="215" y="30" width="180" height="133" rx="3"/><text class="tb" x="305.0" y="75.5" text-anchor="middle">MongoDB Atlas</text><text class="t" x="305.0" y="92.5" text-anchor="middle">companyfacts_concepts</text><text class="t" x="305.0" y="109.5" text-anchor="middle">companyfacts_snapshots</text><text class="t" x="305.0" y="126.5" text-anchor="middle">earnings_releases</text><rect class="bx" x="215" y="180" width="180" height="133" rx="3"/><text class="tb" x="305.0" y="225.5" text-anchor="middle">PostgreSQL dev (raw)</text><text class="t" x="305.0" y="242.5" text-anchor="middle">stock_price_downloads</text><text class="t" x="305.0" y="259.5" text-anchor="middle">raw_stock_prices</text><text class="t" x="305.0" y="276.5" text-anchor="middle">f13_downloads, f13_*</text><rect class="bx" x="430" y="30" width="180" height="133" rx="3"/><text class="tb" x="520.0" y="58.5" text-anchor="middle">Python loaders</text><text class="t" x="520.0" y="75.5" text-anchor="middle">quarterly_revenue</text><text class="t" x="520.0" y="92.5" text-anchor="middle">quarterly_capex</text><text class="t" x="520.0" y="109.5" text-anchor="middle">operating_income</text><text class="t" x="520.0" y="126.5" text-anchor="middle">cash_flow, valuation</text><text class="t" x="520.0" y="143.5" text-anchor="middle">product_kpis</text><rect class="bx" x="430" y="180" width="180" height="133" rx="3"/><text class="tb" x="520.0" y="225.5" text-anchor="middle">SQL views</text><text class="t" x="520.0" y="242.5" text-anchor="middle">stock_prices_daily</text><text class="t" x="520.0" y="259.5" text-anchor="middle">f13_filing_review</text><text class="t" x="520.0" y="276.5" text-anchor="middle">f13_quarterly_changes</text><rect class="fl" x="645" y="30" width="150" height="283" rx="3"/><text class="tb" x="720.0" y="125.0" text-anchor="middle">final schema</text><text class="t" x="720.0" y="142.0" text-anchor="middle">financial_metrics</text><text class="t" x="720.0" y="159.0" text-anchor="middle">capital_expenditure</text><text class="t" x="720.0" y="176.0" text-anchor="middle">company_financials</text><text class="t" x="720.0" y="193.0" text-anchor="middle">valuation_quarterly</text><text class="t" x="720.0" y="210.0" text-anchor="middle">valuation_annual</text><text class="t" x="720.0" y="227.0" text-anchor="middle">product_kpis</text><rect class="pl" x="830" y="60" width="120" height="90" rx="3"/><text class="tb" x="890.0" y="101.0" text-anchor="middle">Dashboard</text><text class="t" x="890.0" y="118.0" text-anchor="middle">(planned)</text><rect class="pl" x="830" y="180" width="120" height="110" rx="3"/><text class="tb" x="890.0" y="205.5" text-anchor="middle">Vector search</text><text class="t" x="890.0" y="222.5" text-anchor="middle">on release</text><text class="t" x="890.0" y="239.5" text-anchor="middle">text in</text><text class="t" x="890.0" y="256.5" text-anchor="middle">MongoDB</text><text class="t" x="890.0" y="273.5" text-anchor="middle">(planned)</text><line class="ar" x1="180" y1="59" x2="215" y2="80" marker-end="url(#ah)"/><line class="ar" x1="180" y1="134" x2="215" y2="120" marker-end="url(#ah)"/><line class="ar" x1="180" y1="209" x2="215" y2="230" marker-end="url(#ah)"/><line class="ar" x1="180" y1="284" x2="215" y2="270" marker-end="url(#ah)"/><line class="ar" x1="395" y1="96" x2="430" y2="96" marker-end="url(#ah)"/><line class="ar" x1="395" y1="246" x2="430" y2="246" marker-end="url(#ah)"/><line class="ar" x1="610" y1="96" x2="645" y2="96" marker-end="url(#ah)"/><line class="ar" x1="610" y1="246" x2="645" y2="246" marker-end="url(#ah)"/><line class="ar dash" x1="795" y1="105" x2="830" y2="105" marker-end="url(#ah)"/></svg>
+<figcaption><b>Figure 1.</b> How data moves: source, raw storage, clean tables, final views. Dashed boxes are planned.</figcaption></figure>
+
+<div class="page sectionhead"><p class="sectiontitle">2. HOW WE TRANSFORM THE DATA, AND WHAT WAS HARD</p></div>
+<p class="fhead">Transformation steps</p>
+<ul>
+<li><b>Find the quarters.</b> We use each company's real quarter dates, because Microsoft's year ends in June and NVIDIA's in late January.</li>
+<li><b>Turn year-to-date totals into quarters.</b> Cash flow is reported year to date, so each quarter = this total minus the last one.</li>
+<li><b>Adjust for stock splits.</b> Per-share numbers are restated for splits (NVIDIA 4:1 and 10:1, Amazon and Alphabet 20:1).</li>
+<li><b>Read product numbers</b> from each press release, and keep the exact sentence or table row each number came from.</li>
+<li><b>Calculate the KPIs in SQL views:</b> growth, margins, free cash flow, P/E, EV/Revenue and FCF yield.</li>
+</ul>
+<p>Each load runs as one transaction. Running the cash flow and product loads a second time changed nothing.</p>
+
+<p class="cap">Table 3. Data quality log. Critical issues stop the load. Recoverable issues are fixed and recorded.</p>
+<table>
+<tr><th style="width:24%">Issue</th><th style="width:33%">What we found</th><th style="width:12%">Type</th><th>What we did</th></tr>
+<tr><td>Same number in several filings</td><td>Each value is repeated in next year's filing</td><td>Recoverable</td>
+<td>Use the filing for that period only.</td></tr>
+<tr><td>Quarters must add up to the year</td><td>0 mismatches in 35 company-years</td><td>Critical</td>
+<td>Load stops if a number is missing.</td></tr>
+<tr><td>Rounding in Q4 figures</td><td>6 values taken from press releases; largest gap $1,000,000</td>
+<td>Recoverable</td><td>Keep the published number and record the gap.</td></tr>
+<tr><td>Stock splits</td><td>751 EPS pairs checked against later filings</td><td>Critical</td>
+<td>Load stops on a split-sized gap.</td></tr>
+<tr><td>Missing shares or debt</td><td>21 Alphabet quarters with no share count; 14 Meta quarters with no debt line</td>
+<td>Recoverable</td><td>Shares = net income / EPS. No debt line = 0, labelled.</td></tr>
+<tr><td>Bad or duplicate prices</td><td>0 of 12,170 rows flagged; 2,250 repeated rows</td>
+<td>Recoverable</td><td>Flag, never delete. Keep one row per stock per day.</td></tr>
+<tr><td>Fund filing amendments (13F)</td><td>43,358 filings; 626 replaced by later ones</td><td>Recoverable</td>
+<td>Use only the latest valid filing.</td></tr>
+<tr><td>Product number not in release</td><td>91 of 364 slots empty</td><td>Recoverable</td>
+<td>Store as empty with a reason. Never guess.</td></tr>
+</table>
+
+<p class="fhead">Types, missing values and duplicates</p>
+<ul>
+<li><b>Types:</b> raw values stay as text so no row is lost; clean tables store dates, whole dollars and exact decimals so math is exact.</li>
+<li><b>Missing values:</b> stored as empty (NULL) with a reason, not as zero, because zero would distort averages. The one exception: a filing with no debt line is stored as 0 and labelled.</li>
+<li><b>Duplicates:</b> removed using keys (company and exact dates) and file fingerprints, so each quarter is counted once.</li>
+</ul>
+<p><b>Check:</b> Microsoft FY2025 Q4 from its filings gives revenue $76.441 billion, CapEx $17.079 billion and free cash
+flow $25.568 billion. Our final view shows the same numbers.</p>
+
+<p class="fhead">Challenges</p>
+<ul>
+<li>Different fiscal year ends, so quarters are matched on exact dates.</li>
+<li>Companies label the same number differently, and Alphabet and Meta have several share classes.</li>
+<li>Product definitions change over time, so growth is only computed when the definition is the same.</li>
+<li>13F files mix quarters; we now have 3 full quarter-to-quarter comparisons for 2025.</li>
+</ul>
+
+<div class="page sectionhead"><p class="sectiontitle">3. PLAN FROM NOW TO DELIVERY</p></div>
+<p class="cap">Table 4. Timeline.</p>
+<table>
+<tr><th style="width:30%">Step</th><th style="width:20%">Date</th><th>Status</th></tr>
+<tr><td>M1 Proposal</td><td>Nov 9</td><td>Done</td></tr>
+<tr><td>M2 Data, ingestion, cleaning</td><td>Nov 23</td><td>Done: 4 data sources loaded, all 13 KPIs built</td></tr>
+<tr><td>Dashboard and answers to Q1 to Q3</td><td>Nov 24 to Dec 4</td><td>Next</td></tr>
+<tr><td>Final presentation (15 minutes)</td><td>Dec 7, 1:00 to 4:00 pm</td><td>Every member presents</td></tr>
+<tr><td>Final report and peer evaluation</td><td>After Dec 7</td><td>Planned</td></tr>
+</table>
+
+<p class="fhead">Next build 1: the dashboard</p>
+<ul>
+<li><b>Industry overview:</b> all 10 financial and valuation KPIs for the five companies, quarterly or yearly. Answers Q1 and Q2.</li>
+<li><b>Company deep dive:</b> one company's trends from FY2019 to FY2025.</li>
+<li><b>Product performance:</b> AWS, Google Cloud, Azure, Meta apps and NVIDIA Data Center growth. Answers Q3.</li>
+<li><b>Fund activity:</b> which companies funds bought or sold most in 2025. Answers Q2.</li>
+</ul>
+
+<p class="fhead">Next build 2: a vector database on SEC text</p>
+<ul>
+<li>Split the 143 stored press releases into short passages.</li>
+<li>Turn each passage into a vector (a list of numbers that captures its meaning) and index it with MongoDB Atlas Vector Search.</li>
+<li>Then a question like "what did management say about AI demand?" finds the right passages, with links. This answers the
+second part of Q3. Later, an assistant can answer questions using both the numbers and the text.</li>
+</ul>
+
+<p class="fhead">Other work</p>
+<ul>
+<li>Fill two product gaps from other SEC documents: Microsoft Cloud gross margin (3 of 28
+quarters found) and Meta revenue per person (0 of 28).</li>
+<li>Run the loaders on a schedule so the data stays up to date.</li>
+<li>State limits clearly: our free cash flow can differ from a company's own figure, and 13F covers only large funds.</li>
+</ul>
+
+<p class="fhead">What the video shows</p>
+<ul>
+<li>Where the data comes from, with examples of each data source.</li>
+<li>The loaders running, and the tables and collections they fill.</li>
+<li>The quality issues we found, and the data after cleaning.</li>
+</ul>
+</body></html>

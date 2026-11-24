@@ -76,7 +76,7 @@ The loader reads consolidated GAAP operating income (or loss) from the SEC
 Company Facts snapshot in MongoDB. SEC filing metadata identifies each
 10-Q or 10-K's own reporting period. It uses the directly reported quarter
 when available and checks it against the change in year-to-date income.
-For FY2019–FY2025 the 35 linked Q4 GAAP earnings releases in
+For FY2019 to FY2025 the 35 linked Q4 GAAP earnings releases in
 `data/reference/operating_income_releases.csv` provide an additional check
 or supply the reported Q4 when the annual filing gives only a full-year total.
 Without a reported quarter the loader subtracts the preceding cumulative total.
@@ -98,6 +98,81 @@ WHERE fiscal_year = 2025 AND fiscal_quarter = 4
 ORDER BY ticker;
 ```
 
+## Quarterly free cash flow
+
+After applying the migrations and loading the revenue and CapEx quarters, run:
+
+```bash
+uv run load_operating_cash_flow.py --start-year 2019 --end-year 2025
+```
+
+The loader reads consolidated `NetCashProvidedByUsedInOperatingActivities`
+from each original 10-Q and 10-K, matched to the filing's own reporting period.
+Q1 uses its reported total; Q2 through Q4 subtract the preceding year-to-date
+amount. Unlike CapEx, the amount keeps its sign, because operating cash flow
+can be negative. Inputs are stored in
+`dev.quarterly_operating_cash_flow.source_facts`.
+
+`final.company_financials_quarterly` adds `operating_cash_flow_usd` and
+`free_cash_flow_usd` after its existing columns. Free cash flow is operating
+cash flow minus the stored gross CapEx, and NULL when either is missing. It can
+therefore differ from a company's own definition (Amazon, for example, nets
+proceeds and incentives).
+
+```sql
+SELECT ticker, fiscal_quarter, operating_cash_flow_usd, capex_usd, free_cash_flow_usd
+FROM final.company_financials_quarterly
+WHERE fiscal_year = 2025
+ORDER BY ticker, fiscal_quarter;
+```
+
+## Valuation: P/E, EV/Revenue and FCF yield
+
+After the revenue, CapEx, operating cash flow and price loads, run:
+
+```bash
+uv run load_valuation_inputs.py --start-year 2019 --end-year 2025
+```
+
+`dev.quarterly_valuation_inputs` stores, per fiscal quarter, diluted EPS,
+diluted weighted average shares, total debt and cash and equivalents from the
+original 10-Q or 10-K, with the facts in `source_facts`. Prices are split
+adjusted, so EPS and shares are restated to today's share basis with
+`data/reference/stock_splits.csv`. The loader compares each original EPS with
+the EPS restated in later filings and stops when they differ by a split ratio.
+Q4 EPS is annual EPS minus the first three quarters. Where Alphabet does not tag
+diluted shares (before late 2022), shares are net income divided by diluted
+EPS. Debt is `LongTermDebt` (else noncurrent plus current long-term debt, else
+`LongTermDebtAndCapitalLeaseObligations`) plus commercial paper and short-term
+borrowings; a filing without any debt line is stored as 0 with
+`debt_method = 'no_debt_line_in_filing'` (Meta before its 2022 bonds).
+
+`final.valuation_quarterly` prices each quarter at the last close on or before
+its end (within 7 days) and uses the trailing four quarters:
+P/E = close / trailing EPS (NULL when EPS is not positive),
+EV/Revenue = (market cap + debt - cash) / trailing revenue,
+FCF yield = 100 x trailing FCF / market cap. `final.valuation_annual` is the same
+view at fiscal Q4, where the trailing four quarters are the fiscal year.
+`valuation_status` explains every NULL.
+
+## Product KPIs from earnings releases
+
+```bash
+uv run fetch_earnings_releases.py
+uv run load_product_kpis.py --dry-run
+uv run load_product_kpis.py
+```
+
+The first command stores each 8-K Item 2.02 Exhibit 99.1 in the MongoDB
+collection `earnings_releases` (raw HTML, SHA-256, source URL, a text copy, and
+the fiscal quarter it reports). The loader reads segment tables and fixed
+sentences into `dev.quarterly_product_kpis`, keeping the exact source text,
+which must occur in the stored release. A KPI the release does not state is
+NULL with a note. `final.product_kpis_quarterly` adds year-over-year growth
+(from the release's own prior-year column, else four quarters earlier with the
+same definition note) and three ratios: AWS and Google Cloud operating margin
+and NVIDIA Data Center share of revenue.
+
 ## Daily stock prices
 
 Apply the Alembic migrations, then run the price loader from the repository root:
@@ -118,7 +193,7 @@ Repeated downloads with unchanged historical values reuse the existing snapshot.
 ## Institutional holdings (Form 13F)
 
 After applying the Alembic migrations, run `uv run load_13f.py`. The default
-SEC download covers filings submitted June–August 2025. Use `--window` for
+SEC download covers filings submitted June to August 2025. Use `--window` for
 another supported filing window, or add `--archive /path/to/the-same-filename.zip`
 to replay a saved ZIP. The loader uses `SEC_USER_AGENT` and `DATABASE_URL`.
 
@@ -137,7 +212,7 @@ Reconcile restatements and additions before summing across filings.
 
 ### Compare 13F share positions across quarters
 
-Load the March–May and June–August 2025 SEC filing windows to compare the
+Load the March to May and June to August 2025 SEC filing windows to compare the
 March 31 and June 30 reporting dates. To add the earlier window:
 
 ```bash
@@ -157,7 +232,7 @@ ORDER BY manager_name;
 The view compares consecutive calendar quarter-ends by manager CIK and security
 CUSIP, including Alphabet's two classes separately. It uses public filings in
 the downloaded windows; later amendments can change results. Following the
-[SEC amendment guidance (questions 58b–c)](https://www.sec.gov/rules-regulations/staff-guidance/frequently-asked-questions-about-form-13f),
+[SEC amendment guidance (questions 58b to c)](https://www.sec.gov/rules-regulations/staff-guidance/frequently-asked-questions-about-form-13f),
 the latest full restatement replaces the earlier filings. Subsequent numbered
 new-holdings amendments supplement it (or the original). Inspect
 `dev.f13_filing_review` for each accession's disposition, including notice
@@ -208,5 +283,5 @@ annual filing period. It labels quarters in date order within that period and
 compares each with the same company's matching fiscal quarter one year earlier.
 Growth is NULL when the prior year is missing or prior revenue is zero.
 
-The FY2019–FY2025 load covers 140 quarters across the five companies and
+The FY2019 to FY2025 load covers 140 quarters across the five companies and
 provides 120 year-over-year comparisons, beginning with FY2020.

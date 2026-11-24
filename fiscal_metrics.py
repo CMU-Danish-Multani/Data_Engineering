@@ -51,7 +51,7 @@ def filing_periods(cik, first_year):
 
 def load_metric(metric, start_year, end_year, tickers, tags, references, build_rows):
     # The identifiers below are internal constants. All user input is bound as data.
-    if metric not in ("capex", "operating_income"):
+    if metric not in ("capex", "operating_income", "operating_cash_flow"):
         raise ValueError(f"Unsupported financial metric: {metric}")
     if start_year > end_year:
         raise ValueError("The start year must be at or before the end year")

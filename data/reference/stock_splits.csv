@@ -1,0 +1,5 @@
+ticker,ex_date,ratio,verification
+NVDA,2021-07-20,4,load_valuation_inputs.py split check: original EPS divided by this ratio must match the EPS restated in later SEC filings
+AMZN,2022-06-06,20,load_valuation_inputs.py split check: original EPS divided by this ratio must match the EPS restated in later SEC filings
+GOOGL,2022-07-18,20,load_valuation_inputs.py split check: original EPS divided by this ratio must match the EPS restated in later SEC filings
+NVDA,2024-06-10,10,load_valuation_inputs.py split check: original EPS divided by this ratio must match the EPS restated in later SEC filings

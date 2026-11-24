@@ -1,0 +1,59 @@
+alembic_version: [('9c4b2f61e8a7',)]
+dev.companies | table | 5
+dev.quarterly_revenue | table | 140
+dev.quarterly_capex | table | 140
+dev.quarterly_operating_income | table | 140
+dev.quarterly_operating_cash_flow | table | 140
+dev.quarterly_valuation_inputs | table | 140
+dev.quarterly_product_kpis | table | 364
+dev.stock_price_downloads | table | 14
+dev.raw_stock_prices | table | 12170
+dev.stock_prices_daily | view | 9920
+dev.f13_downloads | table | 4
+dev.f13_securities | table | 6
+dev.f13_submission | table | 43358
+dev.f13_coverpage | table | 43358
+dev.f13_infotable | table | 204834
+dev.f13_holdings_as_filed | view | 204834
+dev.f13_filing_review | view | 43358
+dev.f13_manager_positions | view | 207468
+dev.f13_quarterly_changes | view | 98807
+final.financial_metrics_quarterly | view | 140
+final.capital_expenditure_quarterly | view | 140
+final.company_financials_quarterly | view | 140
+final.valuation_quarterly | view | 140
+final.valuation_annual | view | 35
+final.product_kpis_quarterly | view | 392
+KPI coverage (non-null of rows):
+  revenue | 140 of 140
+  revenue_growth | 120 of 140
+  capex | 140 of 140
+  capex_growth | 120 of 140
+  capex_pct_revenue | 140 of 140
+  operating_margin | 140 of 140
+  free_cash_flow | 140 of 140
+  pe_quarterly | 124 of 140
+  ev_to_revenue_quarterly | 125 of 140
+  fcf_yield_quarterly | 125 of 140
+  pe_annual | 34 of 35
+  ev_to_revenue_annual | 35 of 35
+  fcf_yield_annual | 35 of 35
+  product AMZN aws_operating_income_usd | 28 of 28 | growth 24
+  product AMZN aws_operating_margin_pct | 28 of 28 | growth 0
+  product AMZN aws_revenue_usd | 28 of 28 | growth 28
+  product GOOGL google_cloud_operating_income_usd | 21 of 28 | growth 17
+  product GOOGL google_cloud_operating_margin_pct | 21 of 28 | growth 0
+  product GOOGL google_cloud_revenue_usd | 25 of 28 | growth 25
+  product META advertising_revenue_usd | 28 of 28 | growth 24
+  product META average_revenue_per_person_usd | 0 of 28 | growth 0
+  product META family_of_apps_revenue_usd | 17 of 28 | growth 13
+  product MSFT azure_revenue_growth_pct | 28 of 28 | growth 0
+  product MSFT microsoft_cloud_gross_margin_pct | 3 of 28 | growth 0
+  product MSFT microsoft_cloud_revenue_usd | 21 of 28 | growth 10
+  product NVDA data_center_revenue_usd | 21 of 28 | growth 16
+  product NVDA data_center_share_of_revenue_pct | 21 of 28 | growth 0
+13F downloads: [(True, 3360306, 50615), (True, 3440002, 52165), (True, 3267091, 48262), (True, 3473209, 53792)]
+database size: [('416 MB',)]
+mongo companyfacts_concepts | 2819
+mongo companyfacts_snapshots | 5
+mongo earnings_releases | 143

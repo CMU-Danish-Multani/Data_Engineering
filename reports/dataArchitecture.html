@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stock Intelligence Dashboard: Data Pipeline Architecture</title>
+<style>
+  @page {
+    size: letter; margin: 0.6in 0.65in 0.7in;
+    @bottom-left { content: "Stock Intelligence Dashboard: Data Pipeline Architecture"; font: 8pt Helvetica, Arial, sans-serif; color: #777; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt Helvetica, Arial, sans-serif; color: #777; }
+  }
+  :root { --src:#6b7280; --raw:#b5651d; --rawbg:#fbf3ea; --cln:#2d7d5a; --clnbg:#eef7f1; --srv:#1f5fbf; --srvbg:#eaf1fb; --vec:#a3366b; --vecbg:#fbedf3; --ops:#7a4fb3; --opsbg:#f4effb; }
+  * { box-sizing: border-box; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 9.6pt; line-height: 1.38; color: #1a1a1a; margin: 0; }
+  h1 { font-size: 20pt; margin: 0 0 3px; }
+  .byline { color: #555; margin: 0 0 10px; }
+  h2 { font-size: 14.5pt; margin: 20px 0 6px; padding: 4px 8px; color: #fff; background: #1a1a1a; border-radius: 3px; break-after: avoid; }
+  h2.ing { background: var(--src); } h2.sto { background: var(--raw); } h2.tra { background: var(--cln); }
+  h2.vec { background: var(--vec); } h2.ser { background: var(--srv); } h2.ops { background: var(--ops); }
+  h3 { font-size: 11.5pt; margin: 14px 0 5px; break-after: avoid; }
+  h4 { font-size: 10pt; margin: 10px 0 4px; break-after: avoid; }
+  p { margin: 0 0 7px; }
+  ul, ol { margin: 0 0 8px; padding-left: 20px; }
+  li { margin: 2px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 4px 0 9px; font-size: 8.6pt; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th, td { border: 1px solid #c9c9c9; padding: 4px 6px; vertical-align: top; text-align: left; }
+  th { background: #f0f0f0; font-weight: 600; }
+  code { font-family: Menlo, Consolas, monospace; font-size: 8.1pt; background: #f3f3f3; padding: 0 2px; border-radius: 2px; }
+  pre { font-family: Menlo, Consolas, monospace; font-size: 7.7pt; line-height: 1.4; background: #f6f6f6; border: 1px solid #e0e0e0; border-radius: 3px; padding: 7px 10px; margin: 4px 0 10px; white-space: pre-wrap; break-inside: avoid; }
+  .short { border-left: 4px solid #1a1a1a; background: #f5f5f5; padding: 6px 10px; margin: 4px 0 10px; break-inside: avoid; }
+  .short.ing { border-color: var(--src); } .short.sto { border-color: var(--raw); background: var(--rawbg); }
+  .short.tra { border-color: var(--cln); background: var(--clnbg); } .short.vec { border-color: var(--vec); background: var(--vecbg); }
+  .short.ser { border-color: var(--srv); background: var(--srvbg); } .short.ops { border-color: var(--ops); background: var(--opsbg); }
+  .keep { break-inside: avoid; }
+  table.fixed { table-layout: fixed; }
+  table.fixed code { word-break: break-all; }
+  .tname { font-family: Menlo, Consolas, monospace; font-size: 9pt; font-weight: 700; margin: 10px 0 2px; break-after: avoid; }
+  .tname span { font-family: Helvetica, Arial, sans-serif; font-weight: 400; color: #555; font-size: 8.6pt; }
+  figure { margin: 6px 0 10px; break-inside: avoid; }
+  figcaption { font-size: 8.5pt; color: #555; margin-top: 3px; }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { font-family: Helvetica, Arial, sans-serif; }
+  .toc a { color: #1a1a1a; text-decoration: none; }
+  .toc td:first-child { width: 6%; font-weight: 700; }
+  a { color: #1f5fbf; }
+  ul.cell { margin: 0; padding-left: 14px; }
+  ul.cell li { margin: 0 0 1px; }
+  .note { display: block; color: #555; font-size: 8.5pt; margin-top: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Stock Intelligence Dashboard: Data Pipeline Architecture</h1>
+<p class="byline">Team 8: Mohd Danish Multani, Anav Batra, Akshay Iyer, Alan Zhou &middot; November 17, 2026 &middot; every step of the data pipeline, from source to dashboard</p>
+
+<table class="toc">
+  <thead><tr><th>#</th><th style="width:28%">Stage (click to jump)</th><th>Question it answers</th></tr></thead>
+  <tr><td>1</td><td><a href="#brief">Brief</a></td><td>What are we building, and what does the whole pipeline look like?</td></tr>
+  <tr><td>2</td><td><a href="#ingestion">Data ingestion</a></td><td>How do we get data from each source, and where does it land?</td></tr>
+  <tr><td>3</td><td><a href="#storage">Data storage</a></td><td>What is stored in S3, in PostgreSQL, and in MongoDB, and why there?</td></tr>
+  <tr><td>4</td><td><a href="#transformation">Data transformation</a></td><td>How is raw data flattened, cleaned, checked and loaded into the star schema?</td></tr>
+  <tr><td>5</td><td><a href="#vector">Vector database</a></td><td>What text goes into MongoDB's vector collection, and how is it stored and searched?</td></tr>
+  <tr><td>6</td><td><a href="#serving">Data serving</a></td><td>Which views hold the 16 KPIs, and how are they calculated?</td></tr>
+  <tr><td>7</td><td><a href="#dashboard">Dashboard and assistant</a></td><td>Who reads which database?</td></tr>
+  <tr><td>8</td><td><a href="#operations">Operating the pipeline</a></td><td>When does each job run, how do we trace a number, and how is access controlled?</td></tr>
+</table>
+
+<!-- ================= 1 BRIEF ================= -->
+<h2 id="brief">1. Brief</h2>
+<div class="short"><b>In short:</b> we pull six public data feeds about five AI infrastructure companies, keep every file exactly as downloaded, put numbers in PostgreSQL and text in MongoDB, and let a dashboard and an LLM assistant read both: 16 KPIs from PostgreSQL, searchable release and call text from MongoDB.</div>
+
+<h3>High-level design (HLD)</h3>
+<p>The whole system on one page. Read it left to right: get the data, keep the original, organize it by kind, use it.</p>
+<figure>
+<svg viewBox="0 0 700 330" role="img" aria-label="High-level design: sources, ingestion, S3, PostgreSQL for numbers, MongoDB for text, dashboard and assistant">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#777"/></marker></defs>
+  <g font-size="8.5" font-weight="700" fill="#777"><text x="4" y="14">GET THE DATA</text><text x="262" y="14">KEEP THE ORIGINAL</text><text x="382" y="14">ORGANIZE BY KIND</text><text x="592" y="14">USE IT</text></g>
+  <rect x="2" y="24" width="122" height="214" rx="6" fill="#f1f2f4" stroke="#6b7280" stroke-width="1.2"/>
+  <g fill="#fff" stroke="#aaa"><rect x="10" y="46" width="106" height="62" rx="4"/><rect x="10" y="116" width="106" height="46" rx="4"/><rect x="10" y="170" width="106" height="46" rx="4"/></g>
+  <rect x="142" y="86" width="100" height="90" rx="6" fill="#f1f2f4" stroke="#6b7280" stroke-width="1.2"/>
+  <rect x="260" y="86" width="100" height="90" rx="6" fill="#fbf3ea" stroke="#b5651d" stroke-width="1.2"/>
+  <rect x="380" y="24" width="180" height="108" rx="6" fill="#eef7f1" stroke="#2d7d5a" stroke-width="1.5"/>
+  <rect x="380" y="152" width="180" height="96" rx="6" fill="#fbedf3" stroke="#a3366b" stroke-width="1.5"/>
+  <rect x="590" y="36" width="108" height="76" rx="6" fill="#fff" stroke="#1f5fbf" stroke-width="1.5"/>
+  <rect x="590" y="160" width="108" height="76" rx="6" fill="#fff" stroke="#1f5fbf" stroke-width="1.5"/>
+  <rect x="142" y="258" width="418" height="38" rx="6" fill="#f4effb" stroke="#7a4fb3" stroke-width="1.2"/>
+  <g fill="none" stroke="#777" stroke-width="1.3">
+    <path d="M124 131H140" marker-end="url(#ah)"/><path d="M242 131H258" marker-end="url(#ah)"/>
+    <path d="M360 112L378 80" marker-end="url(#ah)"/><path d="M360 150L378 190" marker-end="url(#ah)"/>
+    <path d="M430 152V134" marker-end="url(#ah)"/>
+    <path d="M560 78H574"/><path d="M560 195H574"/><path d="M574 74V198"/>
+    <path d="M574 74H588" marker-end="url(#ah)"/><path d="M574 198H588" marker-end="url(#ah)"/>
+  </g>
+  <g font-size="9.3" fill="#1a1a1a">
+    <text x="10" y="39" font-weight="700">Sources (6 feeds)</text>
+    <text x="16" y="61" font-weight="700">SEC EDGAR</text><text x="16" y="75" fill="#555">financials (XBRL),</text><text x="16" y="88" fill="#555">8-K releases,</text><text x="16" y="101" fill="#555">13F holdings</text>
+    <text x="16" y="131" font-weight="700">Yahoo Finance</text><text x="16" y="145" fill="#555">daily prices</text>
+    <text x="16" y="185" font-weight="700">Alpha Vantage</text><text x="16" y="199" fill="#555">call transcripts</text>
+    <text x="10" y="232" fill="#999" font-size="8">section 2</text>
+    <text x="150" y="104" font-weight="700">Ingestion</text><text x="150" y="119" fill="#555">one Python job</text><text x="150" y="132" fill="#555">per feed, run by</text><text x="150" y="145" fill="#555">cron, new data only</text><text x="150" y="168" fill="#999" font-size="8">section 2</text>
+    <text x="268" y="104" font-weight="700">Amazon S3</text><text x="268" y="119" fill="#555">every file kept</text><text x="268" y="132" fill="#555">exactly as</text><text x="268" y="145" fill="#555">downloaded</text><text x="268" y="168" fill="#999" font-size="8">section 3</text>
+    <text x="388" y="40" font-weight="700">PostgreSQL: the numbers</text>
+    <text x="388" y="56" fill="#555">raw -&gt; staging -&gt; core -&gt; serving</text>
+    <text x="388" y="71" fill="#555">financials, prices, fund holdings</text>
+    <text x="388" y="85" fill="#555">cleaned into a star schema</text>
+    <text x="388" y="99" fill="#555">16 KPIs served as views</text>
+    <text x="388" y="124" fill="#999" font-size="8">sections 3, 4, 6</text>
+    <text x="436" y="146" fill="#777" font-size="8">product figures from releases</text>
+    <text x="388" y="168" font-weight="700">MongoDB: the text</text>
+    <text x="388" y="184" fill="#555">earnings releases, call transcripts</text>
+    <text x="388" y="198" fill="#555">passages with embeddings,</text>
+    <text x="388" y="212" fill="#555">searched by meaning</text><text x="388" y="226" fill="#555">(Atlas Vector Search)</text>
+    <text x="388" y="242" fill="#999" font-size="8">sections 3, 5</text>
+    <text x="598" y="54" font-weight="700">Dashboard</text><text x="598" y="70" fill="#555">KPI charts from</text><text x="598" y="83" fill="#555">PostgreSQL, quotes</text><text x="598" y="96" fill="#555">from MongoDB</text>
+    <text x="598" y="178" font-weight="700">LLM assistant</text><text x="598" y="194" fill="#555">SQL for numbers,</text><text x="598" y="207" fill="#555">vector search</text><text x="598" y="220" fill="#555">for text</text>
+    <text x="598" y="130" fill="#999" font-size="8">read-only logins</text><text x="598" y="142" fill="#999" font-size="8">section 7</text>
+    <text x="150" y="273"><tspan font-weight="700" fill="#7a4fb3">ops (in PostgreSQL):</tspan><tspan fill="#555"> run log and watermarks, quality checks, XBRL tag map.</tspan></text>
+    <text x="150" y="288" fill="#555">Every number traces back to its original S3 file (section 8).</text>
+  </g>
+  <g font-size="8.8" fill="#1a1a1a">
+    <text x="2" y="321" font-weight="700">Color key:</text>
+    <rect x="58" y="311" width="12" height="12" rx="2" fill="#f1f2f4" stroke="#6b7280" stroke-width="1.3"/><text x="75" y="321">Getting the data</text>
+    <rect x="162" y="311" width="12" height="12" rx="2" fill="#fbf3ea" stroke="#b5651d" stroke-width="1.3"/><text x="179" y="321">Stored as received</text>
+    <rect x="272" y="311" width="12" height="12" rx="2" fill="#eef7f1" stroke="#2d7d5a" stroke-width="1.3"/><text x="289" y="321">PostgreSQL: numbers</text>
+    <rect x="392" y="311" width="12" height="12" rx="2" fill="#fbedf3" stroke="#a3366b" stroke-width="1.3"/><text x="409" y="321">MongoDB: text</text>
+    <rect x="492" y="311" width="12" height="12" rx="2" fill="#fff" stroke="#1f5fbf" stroke-width="1.3"/><text x="509" y="321">Applications</text>
+    <rect x="596" y="311" width="12" height="12" rx="2" fill="#f4effb" stroke="#7a4fb3" stroke-width="1.3"/><text x="613" y="321">Operations, logs</text>
+  </g>
+</svg>
+<figcaption>Figure 1. High-level design. Numbers go to PostgreSQL and text goes to MongoDB; the dashboard and the assistant read from both.</figcaption>
+</figure>
+
+<table style="break-inside: avoid">
+  <tr><th style="width:22%">Companies</th><td>Microsoft, Alphabet, Amazon, Meta (the largest buyers of AI computing) and NVIDIA (the largest supplier of AI chips)</td></tr>
+  <tr><th>Problem statement</th><td>How can retail investors compare companies using financial performance, institutional investment activity, and qualitative information?</td></tr>
+  <tr><th>Sources</th><td>6 feeds from 3 providers: SEC EDGAR (4 feeds), Yahoo Finance, Alpha Vantage</td></tr>
+  <tr><th>Storage</th><td>Amazon S3 (original files), PostgreSQL (the numbers: raw tables, star schema, KPI views), MongoDB (the text: releases, transcripts, and their embeddings, searched with Atlas Vector Search)</td></tr>
+  <tr><th>Output</th><td>16 KPIs per company per quarter and per year (PostgreSQL views) and searchable management commentary (MongoDB), read by a dashboard and an LLM assistant</td></tr>
+</table>
+
+<h3>The full architecture</h3>
+<figure>
+<svg viewBox="0 0 700 632" role="img" aria-label="Full architecture: numbers flow through PostgreSQL layers, text lives in MongoDB, applications read both">
+  <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#777"/></marker></defs>
+  <rect x="10" y="8" width="560" height="78" rx="6" fill="#f1f2f4" stroke="#6b7280"/>
+  <g fill="#fff" stroke="#aaa"><rect x="20" y="28" width="250" height="52" rx="4"/><rect x="280" y="28" width="135" height="52" rx="4"/><rect x="425" y="28" width="135" height="52" rx="4"/></g>
+  <rect x="10" y="102" width="560" height="30" rx="4" fill="#f1f2f4" stroke="#6b7280"/>
+  <rect x="10" y="148" width="560" height="30" rx="4" fill="#fbf3ea" stroke="#b5651d"/>
+  <rect x="10" y="196" width="390" height="62" rx="4" fill="#fbf3ea" stroke="#b5651d"/>
+  <rect x="420" y="196" width="150" height="62" rx="4" fill="#fbf3ea" stroke="#b5651d"/>
+  <rect x="10" y="278" width="390" height="62" rx="4" fill="#eef7f1" stroke="#2d7d5a"/>
+  <rect x="10" y="360" width="390" height="62" rx="4" fill="#eef7f1" stroke="#2d7d5a" stroke-width="1.5"/>
+  <rect x="4" y="430" width="572" height="72" rx="6" fill="none" stroke="#1f5fbf" stroke-dasharray="5 3"/>
+  <rect x="10" y="446" width="390" height="50" rx="4" fill="#eaf1fb" stroke="#1f5fbf" stroke-width="1.5"/>
+  <rect x="420" y="446" width="150" height="50" rx="4" fill="#fbedf3" stroke="#1f5fbf" stroke-width="1.5"/>
+  <rect x="10" y="520" width="260" height="40" rx="4" fill="#fff" stroke="#1f5fbf"/>
+  <rect x="310" y="520" width="260" height="40" rx="4" fill="#fff" stroke="#1f5fbf"/>
+  <rect x="590" y="102" width="100" height="320" rx="4" fill="#f4effb" stroke="#7a4fb3"/>
+  <g fill="none" stroke="#777" stroke-width="1.1">
+    <path d="M290 86V100" marker-end="url(#a2)"/><path d="M290 132V146" marker-end="url(#a2)"/>
+    <path d="M205 178V194" marker-end="url(#a2)"/><path d="M495 178V194" marker-end="url(#a2)"/>
+    <path d="M205 258V276" marker-end="url(#a2)"/><path d="M205 340V358" marker-end="url(#a2)"/><path d="M205 422V444" marker-end="url(#a2)"/>
+    <path d="M430 258V309H402" marker-end="url(#a2)"/>
+    <path d="M495 258V444" marker-end="url(#a2)"/>
+    <path d="M140 496V518" marker-end="url(#a2)"/><path d="M380 496V518" marker-end="url(#a2)"/>
+    <path d="M520 496V518" marker-end="url(#a2)"/><path d="M445 496V508H240V518" marker-end="url(#a2)"/>
+  </g>
+  <g font-size="9.3" fill="#1a1a1a">
+    <text x="20" y="22" font-weight="700" font-size="10.3">Sources: 3 providers, 6 feeds</text>
+    <text x="30" y="43" font-weight="700">SEC EDGAR</text>
+    <text x="30" y="56" fill="#555">XBRL facts (JSON), filing index (JSON)</text>
+    <text x="30" y="69" fill="#555">8-K releases (HTML), Form 13F (TSV in ZIP)</text>
+    <text x="290" y="43" font-weight="700">Yahoo Finance</text><text x="290" y="56" fill="#555">Daily prices (CSV)</text>
+    <text x="435" y="43" font-weight="700">Alpha Vantage</text><text x="435" y="56" fill="#555">Call transcripts (JSON)</text>
+    <text x="20" y="121"><tspan font-weight="700">Ingestion:</tspan><tspan fill="#555"> one Python job per feed, run by cron, asks only for data newer than its watermark</tspan></text>
+    <text x="20" y="167"><tspan font-weight="700">Amazon S3 landing zone:</tspan><tspan fill="#555"> every file stored unchanged, by source and load date</tspan></text>
+    <text x="20" y="212" font-weight="700">PostgreSQL raw (numbers, as received)</text>
+    <text x="20" y="226" fill="#555">xbrl_companyfacts (JSON), stock_prices_daily, companies_seed,</text>
+    <text x="20" y="239" fill="#555">f13_submission, f13_coverpage, f13_infotable</text>
+    <text x="20" y="252" fill="#555">no keys or constraints, so nothing is rejected on arrival</text>
+    <text x="430" y="212" font-weight="700">MongoDB stock_intel</text>
+    <text x="430" y="226" fill="#555">earnings_releases</text>
+    <text x="430" y="239" fill="#555">earnings_transcripts</text>
+    <text x="430" y="252" fill="#555">text, source shape kept</text>
+    <text x="20" y="294" font-weight="700">PostgreSQL staging: flatten, parse, clean, check</text>
+    <text x="20" y="308" fill="#555">SQL flattens XBRL JSON; parser reads release figures from MongoDB;</text>
+    <text x="20" y="321" fill="#555">views cast types, keep the latest filing, turn year-to-date into quarters;</text>
+    <text x="20" y="334" fill="#555">checks write ops.dq_log, and a critical issue stops the load</text>
+    <text x="436" y="300" fill="#777" font-size="8">release</text><text x="436" y="311" fill="#777" font-size="8">figures</text>
+    <text x="502" y="330" fill="#555">split and</text><text x="502" y="343" fill="#555">embed</text><text x="502" y="356" fill="#555">(section 5)</text>
+    <text x="20" y="376" font-weight="700">PostgreSQL core: star schema with keys and constraints</text>
+    <text x="20" y="390" fill="#555">5 dimensions: company, security, fiscal period, metric, manager</text>
+    <text x="20" y="403" fill="#555">4 facts: reported metric, daily price, holding, manager quarter</text>
+    <text x="20" y="416" fill="#555">one clean copy of every number</text>
+    <text x="12" y="441" font-size="8.5" font-weight="700" fill="#1f5fbf">RETRIEVAL: what applications read</text>
+    <text x="20" y="462" font-weight="700">PostgreSQL serving (numbers)</text>
+    <text x="20" y="476" fill="#555">Tables 1 to 8: the 16 KPIs, quarterly and yearly</text>
+    <text x="20" y="489" fill="#555">+ holdings, money flow and improvement views</text>
+    <text x="430" y="462" font-weight="700">MongoDB (text)</text>
+    <text x="430" y="476" fill="#555">document_chunks with</text>
+    <text x="430" y="489" fill="#555">vector search; full documents</text>
+    <text x="20" y="537" font-weight="700">Dashboard</text><text x="20" y="551" fill="#555">charts from PostgreSQL, quotes from MongoDB</text>
+    <text x="320" y="537" font-weight="700">LLM assistant</text><text x="320" y="551" fill="#555">SQL on PostgreSQL + vector search on MongoDB</text>
+    <text x="600" y="120" font-weight="700" fill="#7a4fb3">ops</text><text x="600" y="133" fill="#555">(PostgreSQL)</text>
+    <text x="600" y="154" fill="#555">load_log</text><text x="600" y="167" fill="#555">one row per</text><text x="600" y="180" fill="#555">job run</text>
+    <text x="600" y="201" fill="#555">dq_log</text><text x="600" y="214" fill="#555">one row per</text><text x="600" y="227" fill="#555">check result</text>
+    <text x="600" y="248" fill="#555">xbrl_concept_map</text><text x="600" y="261" fill="#555">tag priority</text>
+    <text x="600" y="290" fill="#555">used by every</text><text x="600" y="303" fill="#555">stage</text>
+    <text x="10" y="580" fill="#555">Every layer can be rebuilt from the one above it, because S3 keeps each original file.</text>
+  </g>
+  <g font-size="8.8" fill="#1a1a1a">
+    <text x="2" y="606" font-weight="700">Color key:</text>
+    <rect x="58" y="596" width="12" height="12" rx="2" fill="#f1f2f4" stroke="#6b7280" stroke-width="1.3"/><text x="75" y="606">Getting the data</text>
+    <rect x="210" y="596" width="12" height="12" rx="2" fill="#fbf3ea" stroke="#b5651d" stroke-width="1.3"/><text x="227" y="606">Raw: stored as received</text>
+    <rect x="370" y="596" width="12" height="12" rx="2" fill="#eef7f1" stroke="#2d7d5a" stroke-width="1.3"/><text x="387" y="606">Cleaned: staging and core</text>
+    <rect x="530" y="596" width="12" height="12" rx="2" fill="#eaf1fb" stroke="#1f5fbf" stroke-width="1.3"/><text x="547" y="606">Serving: ready to use</text>
+    <rect x="58" y="614" width="12" height="12" rx="2" fill="#fbedf3" stroke="#a3366b" stroke-width="1.3"/><text x="75" y="624">Text, embedded for search</text>
+    <rect x="210" y="614" width="12" height="12" rx="2" fill="#fff" stroke="#1f5fbf" stroke-width="1.3"/><text x="227" y="624">Applications</text>
+    <rect x="370" y="614" width="12" height="12" rx="2" fill="#f4effb" stroke="#7a4fb3" stroke-width="1.3"/><text x="387" y="624">Operations: logs, checks</text>
+    <rect x="530" y="614" width="12" height="12" rx="2" fill="none" stroke="#1f5fbf" stroke-width="1.3" stroke-dasharray="3 2"/><text x="547" y="624">Retrieval: what apps read</text>
+  </g>
+</svg>
+<figcaption>Figure 2. Full architecture. Numbers move through four PostgreSQL layers (raw, staging, core, serving, plus ops); text stays in MongoDB, where it is also chunked and searched. Applications read only the two databases inside the dashed box.</figcaption>
+</figure>
+
+<!-- ================= 2 INGESTION ================= -->
+<h2 id="ingestion" class="ing">2. Data ingestion</h2>
+<div class="short ing"><b>In short:</b> one Python job per feed calls the source, saves the response to S3 exactly as received, checks it, and then lands it in PostgreSQL raw (numbers and tables) or MongoDB (text).</div>
+
+<h3>2.1 Where each source goes</h3>
+<figure>
+<svg viewBox="0 0 700 320" role="img" aria-label="Each source, its S3 path and its destination store">
+  <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#777"/></marker></defs>
+  <g font-size="9" font-weight="700" fill="#555"><text x="10" y="12">SOURCE (what we call)</text><text x="222" y="12">LANDS IN S3 (unchanged)</text><text x="500" y="12">THEN STORED IN</text></g>
+  <g fill="#f1f2f4" stroke="#6b7280">
+    <rect x="10" y="20" width="180" height="40" rx="4"/><rect x="10" y="70" width="180" height="40" rx="4"/><rect x="10" y="120" width="180" height="40" rx="4"/>
+    <rect x="10" y="170" width="180" height="40" rx="4"/><rect x="10" y="220" width="180" height="40" rx="4"/><rect x="10" y="270" width="180" height="40" rx="4"/>
+  </g>
+  <g fill="#fbf3ea" stroke="#b5651d">
+    <rect x="222" y="20" width="250" height="40" rx="4"/><rect x="222" y="70" width="250" height="40" rx="4"/><rect x="222" y="120" width="250" height="40" rx="4"/>
+    <rect x="222" y="170" width="250" height="40" rx="4"/><rect x="222" y="220" width="250" height="40" rx="4"/><rect x="222" y="270" width="250" height="40" rx="4"/>
+  </g>
+  <g stroke-width="1.2">
+    <rect x="500" y="20" width="190" height="40" rx="4" fill="#fbf3ea" stroke="#b5651d"/>
+    <rect x="500" y="70" width="190" height="40" rx="4" fill="#fff" stroke="#aaa" stroke-dasharray="4 3"/>
+    <rect x="500" y="120" width="190" height="40" rx="4" fill="#fbf3ea" stroke="#b5651d"/>
+    <rect x="500" y="170" width="190" height="40" rx="4" fill="#fbf3ea" stroke="#b5651d"/>
+    <rect x="500" y="220" width="190" height="40" rx="4" fill="#fbf3ea" stroke="#b5651d"/>
+    <rect x="500" y="270" width="190" height="40" rx="4" fill="#fbf3ea" stroke="#b5651d"/>
+  </g>
+  <g fill="none" stroke="#777" stroke-width="1.1">
+    <path d="M190 40H220" marker-end="url(#a3)"/><path d="M190 90H220" marker-end="url(#a3)"/><path d="M190 140H220" marker-end="url(#a3)"/>
+    <path d="M190 190H220" marker-end="url(#a3)"/><path d="M190 240H220" marker-end="url(#a3)"/><path d="M190 290H220" marker-end="url(#a3)"/>
+    <path d="M472 40H498" marker-end="url(#a3)"/><path d="M472 90H498" marker-end="url(#a3)"/><path d="M472 140H498" marker-end="url(#a3)"/>
+    <path d="M472 190H498" marker-end="url(#a3)"/><path d="M472 240H498" marker-end="url(#a3)"/><path d="M472 290H498" marker-end="url(#a3)"/>
+  </g>
+  <g font-size="9" fill="#1a1a1a">
+    <text x="18" y="36" font-weight="700">1. SEC company facts</text><text x="18" y="50" fill="#555">XBRL JSON, 1 call per company</text>
+    <text x="18" y="86" font-weight="700">2. SEC submissions</text><text x="18" y="100" fill="#555">filing index JSON, 1 call per company</text>
+    <text x="18" y="136" font-weight="700">3. SEC 8-K earnings releases</text><text x="18" y="150" fill="#555">Exhibit 99.1 HTML, Item 2.02 only</text>
+    <text x="18" y="186" font-weight="700">4. Yahoo Finance prices</text><text x="18" y="200" fill="#555">CSV, 1 call for all 5 tickers</text>
+    <text x="18" y="236" font-weight="700">5. SEC Form 13F data sets</text><text x="18" y="250" fill="#555">ZIP of TSV files, 1 per quarter</text>
+    <text x="18" y="286" font-weight="700">6. Alpha Vantage transcripts</text><text x="18" y="300" fill="#555">JSON, 1 call per company-quarter</text>
+    <g font-family="Menlo, Consolas, monospace" font-size="8.2">
+      <text x="230" y="44">raw/sec_companyfacts/{ticker}/{date}.json</text>
+      <text x="230" y="94">raw/sec_submissions/{ticker}/{date}.json</text>
+      <text x="230" y="144">raw/earnings_releases/{ticker}/{accn}.htm</text>
+      <text x="230" y="194">raw/prices/{date}/prices.csv</text>
+      <text x="230" y="244">raw/form13f/{period}_form13f.zip</text>
+      <text x="230" y="294">raw/transcripts/{ticker}/{quarter}.json</text>
+    </g>
+    <text x="508" y="36" font-weight="700">PostgreSQL raw.xbrl_companyfacts</text><text x="508" y="50" fill="#555">one row per company, JSON whole</text>
+    <text x="508" y="86" font-weight="700">S3 only</text><text x="508" y="100" fill="#555">used to find the releases</text>
+    <text x="508" y="136" font-weight="700">MongoDB earnings_releases</text><text x="508" y="150" fill="#555">one doc per release</text>
+    <text x="508" y="186" font-weight="700">PostgreSQL raw.stock_prices_daily</text><text x="508" y="200" fill="#555">COPY, every column text</text>
+    <text x="508" y="236" font-weight="700">PostgreSQL raw.f13_* (3 tables)</text><text x="508" y="250" fill="#555">COPY, every column text</text>
+    <text x="508" y="286" font-weight="700">MongoDB earnings_transcripts</text><text x="508" y="300" fill="#555">one doc per call</text>
+  </g>
+</svg>
+<figcaption>Figure 3. Numbers and tables (XBRL JSON, CSV, TSV) go to PostgreSQL raw; text (release HTML, call transcripts) goes to MongoDB.</figcaption>
+</figure>
+
+<h3>2.2 How we call each source</h3>
+<table class="fixed">
+  <thead><tr><th style="width:3%">#</th><th style="width:11%">Source</th><th style="width:25%">Request</th><th style="width:18%">Access and limits</th><th style="width:19%">What comes back</th><th style="width:14%">Size</th><th>Refresh</th></tr></thead>
+  <tr><td>1</td><td>SEC company facts (XBRL)</td><td><code>GET https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json</code></td><td>No key; <code>User-Agent</code> with name and email; under 10 requests per second</td><td>Every number the company has tagged in its 10-Q and 10-K filings, nested JSON</td><td>5 files; a few hundred concepts each; bytes measured at first load</td><td>After each 10-Q or 10-K</td></tr>
+  <tr><td>2</td><td>SEC submissions (filing index)</td><td><code>GET https://data.sec.gov/submissions/CIK##########.json</code></td><td>Same as 1</td><td>List of every filing with form type, date and accession number</td><td>5 files</td><td>Daily check</td></tr>
+  <tr><td>3</td><td>SEC 8-K earnings releases</td><td><code>GET https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{file}.htm</code></td><td>Same as 1</td><td>Press release HTML: text and tables with segment and product figures</td><td>About 100 documents (5 &times; 20 quarters)</td><td>Quarterly</td></tr>
+  <tr><td>4</td><td>Yahoo Finance prices</td><td><code>yf.download(["MSFT","GOOGL","AMZN","META","NVDA"], start="2020-01-01")</code></td><td>Free, unofficial library; fallback Alpha Vantage <code>TIME_SERIES_DAILY</code> (last 100 days only)</td><td>Date, open, high, low, close, adjusted close, volume</td><td>About 8,700 rows (5 &times; about 1,730 days)</td><td>Daily after close</td></tr>
+  <tr><td>5</td><td>SEC Form 13F data sets</td><td><code>GET https://www.sec.gov/files/structureddata/data/form-13f-data-sets/{period}_form13f.zip</code></td><td>Same as 1</td><td>7 TSV tables; we load SUBMISSION, COVERPAGE, INFOTABLE</td><td>About 96 MB per ZIP (June to August 2026); rows measured at first load</td><td>Quarterly</td></tr>
+  <tr><td>6</td><td>Alpha Vantage transcripts</td><td><code>GET https://www.alphavantage.co/query?function=EARNINGS_CALL_TRANSCRIPT&amp;symbol=MSFT&amp;quarter=2025Q4&amp;apikey={key}</code></td><td>Free key; 25 requests per day, 5 per minute; backfill takes 4 days</td><td>Speaker turns with role, text and sentiment score</td><td>About 100 calls (5 &times; 20 quarters)</td><td>After each call</td></tr>
+</table>
+<ul>
+  <li><b>13F files are grouped by filing date.</b> Since 2024 each data set covers a three-month filing window (for example <code>01mar2026-31may2026_form13f.zip</code>), so one file can mix quarters. Holdings are grouped later by <code>PERIODOFREPORT</code>. Five data sets are loaded so four quarter-over-quarter changes exist.</li>
+  <li><b>Only earnings 8-Ks.</b> From the submissions list we keep only 8-Ks that report Item 2.02 (Results of Operations) and download only Exhibit 99.1.</li>
+  <li><b>Transcript fallback.</b> If the Alpha Vantage endpoint does not work on a free key, the Hugging Face dataset <code>Rogersurf/earnings-call-transcripts</code> (Parquet) is loaded once instead, after its license (marked "other") is read.</li>
+</ul>
+
+<h3>2.3 What every ingestion job does</h3>
+<figure>
+<svg viewBox="0 0 700 160" role="img" aria-label="Job lifecycle with a failure branch">
+  <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#777"/></marker></defs>
+  <g fill="#fff" stroke="#6b7280">
+    <rect x="2" y="10" width="105" height="62" rx="5"/><rect x="119" y="10" width="105" height="62" rx="5"/><rect x="236" y="10" width="105" height="62" rx="5"/>
+    <rect x="353" y="10" width="105" height="62" rx="5" stroke="#b5651d"/><rect x="470" y="10" width="105" height="62" rx="5"/><rect x="587" y="10" width="110" height="62" rx="5"/>
+  </g>
+  <rect x="300" y="104" width="216" height="46" rx="5" fill="#fdecec" stroke="#c0392b"/>
+  <g fill="none" stroke="#777" stroke-width="1.2">
+    <path d="M107 41H117" marker-end="url(#a4)"/><path d="M224 41H234" marker-end="url(#a4)"/><path d="M341 41H351" marker-end="url(#a4)"/>
+    <path d="M458 41H468" marker-end="url(#a4)"/><path d="M575 41H585" marker-end="url(#a4)"/>
+    <path d="M405 72V102" marker-end="url(#a4)" stroke="#c0392b"/>
+  </g>
+  <g font-size="9" fill="#1a1a1a">
+    <text x="10" y="27" font-weight="700">1. Open log</text><text x="10" y="41" fill="#555">ops.load_log row,</text><text x="10" y="54" fill="#555">status 'running'</text>
+    <text x="127" y="27" font-weight="700">2. Fetch new data</text><text x="127" y="41" fill="#555">only records newer</text><text x="127" y="54" fill="#555">than the watermark</text>
+    <text x="244" y="27" font-weight="700">3. Save to S3</text><text x="244" y="41" fill="#555">exactly as received,</text><text x="244" y="54" fill="#555">by load date</text>
+    <text x="361" y="27" font-weight="700">4. Validate</text><text x="361" y="41" fill="#555">not empty, parses,</text><text x="361" y="54" fill="#555">required fields</text>
+    <text x="478" y="27" font-weight="700">5. Land raw</text><text x="478" y="41" fill="#555">MongoDB upsert or</text><text x="478" y="54" fill="#555">PostgreSQL COPY</text>
+    <text x="595" y="27" font-weight="700">6. Close log</text><text x="595" y="41" fill="#555">'success', row counts,</text><text x="595" y="54" fill="#555">new watermark</text>
+    <text x="412" y="92" fill="#c0392b">fails</text>
+    <text x="310" y="122" font-weight="700" fill="#c0392b">Stop: nothing is landed</text>
+    <text x="310" y="137" fill="#555">load_log 'failed' + critical row in ops.dq_log;</text>
+    <text x="310" y="148" fill="#555">the next scheduled run retries</text>
+  </g>
+</svg>
+<figcaption>Figure 4. The same six steps for every feed. A watermark is the newest record already loaded (a date or filing number), so each run asks only for what is new.</figcaption>
+</figure>
+
+<h3>2.4 Company identifiers used to match sources</h3>
+<table>
+  <thead><tr><th>Company</th><th>Ticker (prices, transcripts)</th><th>SEC CIK (filings)</th><th>CUSIP (13F holdings)</th><th>Fiscal year ends</th></tr></thead>
+  <tr><td>Microsoft</td><td>MSFT</td><td>0000789019</td><td>594918104</td><td>June</td></tr>
+  <tr><td>Alphabet</td><td>GOOGL / GOOG</td><td>0001652044</td><td>02079K305 / 02079K107</td><td>December</td></tr>
+  <tr><td>Amazon</td><td>AMZN</td><td>0001018724</td><td>023135106</td><td>December</td></tr>
+  <tr><td>Meta</td><td>META</td><td>0001326801</td><td>30303M102</td><td>December</td></tr>
+  <tr><td>NVIDIA</td><td>NVDA</td><td>0001045810</td><td>67066G104</td><td>Late January</td></tr>
+</table>
+<p>Each source names a company differently, so these identifiers are loaded once from a seed file and become <code>dim_company</code> and <code>dim_security</code> (section 4.5). They are checked against EDGAR and the 13F <code>NAMEOFISSUER</code> field at the first load.</p>
+
+<h3>2.5 Links to check each source</h3>
+<p>Open these in a browser to see the raw data before it is loaded. Examples use Microsoft (CIK 0000789019); swap in another CIK or ticker from 2.4. Scripts must send the SEC <code>User-Agent</code> header described in 2.2; a browser sends its own.</p>
+<table class="fixed">
+  <thead><tr><th style="width:4%">#</th><th style="width:16%">Feed</th><th style="width:45%">Link</th><th>What you should see</th></tr></thead>
+  <tr><td>1</td><td>SEC company facts (XBRL)</td><td><a href="https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json"><code>https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json</code></a></td><td>Every number Microsoft has tagged: <code>facts</code> -&gt; <code>us-gaap</code> -&gt; one entry per concept</td></tr>
+  <tr><td>1</td><td>One XBRL concept (quick check)</td><td><a href="https://data.sec.gov/api/xbrl/companyconcept/CIK0000789019/us-gaap/PaymentsToAcquirePropertyPlantAndEquipment.json"><code>https://data.sec.gov/api/xbrl/companyconcept/CIK0000789019/us-gaap/PaymentsToAcquirePropertyPlantAndEquipment.json</code></a></td><td>Only Microsoft's CapEx, every quarter and year it was reported; change the tag to check any KPI input</td></tr>
+  <tr><td>2</td><td>SEC submissions (filing index)</td><td><a href="https://data.sec.gov/submissions/CIK0000789019.json"><code>https://data.sec.gov/submissions/CIK0000789019.json</code></a></td><td><code>filings.recent</code>: form type, filing date, accession number, items (look for 8-K with 2.02)</td></tr>
+  <tr><td>3</td><td>SEC 8-K earnings releases</td><td><a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0000789019&amp;type=8-K&amp;dateb=&amp;owner=include&amp;count=40"><code>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0000789019&amp;type=8-K&amp;dateb=&amp;owner=include&amp;count=40</code></a></td><td>Microsoft's 8-K list; open one marked Item 2.02, then its Exhibit 99.1 (the press release)</td></tr>
+  <tr><td>4</td><td>Yahoo Finance prices</td><td><a href="https://query1.finance.yahoo.com/v8/finance/chart/MSFT?range=5d&amp;interval=1d"><code>https://query1.finance.yahoo.com/v8/finance/chart/MSFT?range=5d&amp;interval=1d</code></a></td><td>Last 5 days of prices as JSON; this unofficial endpoint is what <code>yfinance</code> calls</td></tr>
+  <tr><td>5</td><td>SEC Form 13F data sets</td><td><a href="https://www.sec.gov/data-research/sec-markets-data/form-13f-data-sets"><code>https://www.sec.gov/data-research/sec-markets-data/form-13f-data-sets</code></a></td><td>List of quarterly ZIP files (about 96 MB each); inside are the TSV tables SUBMISSION, COVERPAGE, INFOTABLE</td></tr>
+  <tr><td>6</td><td>Alpha Vantage transcripts</td><td><a href="https://www.alphavantage.co/query?function=EARNINGS_CALL_TRANSCRIPT&amp;symbol=IBM&amp;quarter=2024Q1&amp;apikey=demo"><code>https://www.alphavantage.co/query?function=EARNINGS_CALL_TRANSCRIPT&amp;symbol=IBM&amp;quarter=2024Q1&amp;apikey=demo</code></a></td><td>A full call as speaker turns. The <code>demo</code> key only works for IBM; for our companies change <code>symbol</code> and use the team key</td></tr>
+  <tr><td>6</td><td>Transcript fallback</td><td><a href="https://huggingface.co/datasets/Rogersurf/earnings-call-transcripts"><code>https://huggingface.co/datasets/Rogersurf/earnings-call-transcripts</code></a></td><td>The Hugging Face dataset used if the Alpha Vantage endpoint fails</td></tr>
+</table>
+
+<h3>2.6 What we take from each source, and the KPIs it feeds</h3>
+<p>KPI numbers match the KPI list in section 6.1. Twelve KPIs come from one source; KPIs 8 to 10 combine a price from Yahoo with reported figures from SEC XBRL.</p>
+<table>
+  <thead><tr><th style="width:18%">Source</th><th style="width:42%">What we take</th><th>KPIs it feeds</th></tr></thead>
+  <tr><td><b>1. SEC company facts (XBRL)</b></td><td><ul class="cell"><li>Revenue</li><li>Capital expenditure (purchases of property and equipment)</li><li>Operating income</li><li>Operating cash flow</li><li>R&amp;D expense</li><li>Net property, plant and equipment</li><li>Diluted EPS</li><li>Total debt and cash</li><li>Shares outstanding</li></ul><span class="note">Each value with its period, filing number and filing date. The exact tag per company is in <code>ops.xbrl_concept_map</code>.</span></td><td><ul class="cell"><li>1 Revenue</li><li>2 Revenue Growth</li><li>3 Capital Expenditure</li><li>4 CapEx Growth</li><li>5 CapEx / Revenue</li><li>6 Operating Margin</li><li>7 Free Cash Flow</li><li>14 R&amp;D Intensity</li><li>15 Build-out Growth</li><li>16 CapEx Payback Ratio</li><li>With prices: 8 P/E (EPS), 9 EV / Revenue (debt, cash, shares), 10 FCF Yield (shares)</li><li>AI Money Flow: the four buyers' CapEx</li></ul></td></tr>
+  <tr><td><b>2. SEC submissions (filing index)</b></td><td><ul class="cell"><li>Form type</li><li>Filing date</li><li>Accession number</li><li>8-K item numbers</li><li>Primary document name</li></ul></td><td>None. It finds the earnings 8-Ks (Item 2.02) and tells the jobs a new 10-Q or 10-K exists.</td></tr>
+  <tr><td><b>3. SEC 8-K earnings releases</b></td><td><ul class="cell"><li>Microsoft: Microsoft Cloud revenue, Azure growth (%), Microsoft Cloud gross margin</li><li>Alphabet: Google Cloud revenue and operating income</li><li>Amazon: AWS revenue and operating income</li><li>Meta: Family of Apps revenue, advertising revenue, average revenue per person</li><li>NVIDIA: Data Center revenue, total revenue</li><li>Full release text</li></ul></td><td><ul class="cell"><li>11 Product Revenue</li><li>12 Product Growth</li><li>13 Monetization / Efficiency (cloud margins, Meta revenue per person, NVIDIA Data Center share)</li><li>AI Money Flow: NVIDIA Data Center revenue</li><li>Release text for the assistant</li></ul></td></tr>
+  <tr><td><b>4. Yahoo Finance prices</b></td><td><ul class="cell"><li>Daily close</li><li>Split-adjusted close</li><li>Volume</li><li>For MSFT, GOOGL, AMZN, META, NVDA</li></ul></td><td><ul class="cell"><li>8 P/E (price)</li><li>9 EV / Revenue (price x shares = market cap)</li><li>10 FCF Yield (market cap)</li></ul></td></tr>
+  <tr><td><b>5. SEC Form 13F data sets</b></td><td><ul class="cell"><li>Fund name and CIK</li><li>Report quarter</li><li>CUSIP of each stock held</li><li>Shares held and their value</li><li>Amendment flag</li><li>Each fund's total portfolio value</li></ul></td><td>No numbered KPI. Fills the ownership view: what the 25 largest funds hold in each company, and the change since last quarter.</td></tr>
+  <tr><td><b>6. Alpha Vantage transcripts</b></td><td><ul class="cell"><li>Speaker name and role</li><li>What they said, turn by turn</li><li>Call quarter</li></ul></td><td>No KPI. Call text for the assistant and the dashboard quotes.</td></tr>
+</table>
+
+<!-- ================= 3 STORAGE ================= -->
+<h2 id="storage" class="sto">3. Data storage</h2>
+<div class="short sto"><b>In short:</b> S3 keeps every original file. PostgreSQL keeps the numbers: raw tables first, then the cleaned layers. MongoDB keeps the text and its embeddings, and applications read it directly. Raw data is never edited.</div>
+
+<h3>3.1 Which store holds what, and why</h3>
+<table>
+  <thead><tr><th style="width:19%">Store</th><th style="width:33%">What lives there</th><th>Why this store</th></tr></thead>
+  <tr><td><b>Amazon S3</b><br><code>s3://team8-stock-intel/raw/</code></td><td>Every downloaded file: companyfacts JSON, submissions JSON, release HTML, 13F ZIPs, price CSVs, transcript JSON</td><td>Cheap, durable, shared by all four members. Any later step reruns from the original file without calling the APIs again, which matters with a 25-call daily limit.</td></tr>
+  <tr><td><b>PostgreSQL</b> <code>raw</code></td><td>XBRL company facts (one JSON value per company), prices, 13F tables, company seed list</td><td>Every number here ends up in a KPI, so it goes where joins, keys and SQL math are. Raw tables keep text and JSON with no constraints, so no problem record is rejected at load.</td></tr>
+  <tr><td><b>PostgreSQL</b> <code>staging</code>, <code>core</code>, <code>serving</code>, <code>ops</code></td><td>Cleaning work, the star schema, KPI views, logs</td><td>The retrieval point for numbers: the dashboard and the assistant's SQL tool read the serving views (sections 4 and 6).</td></tr>
+  <tr><td><b>MongoDB</b> <code>stock_intel</code></td><td>Earnings releases, call transcripts, and their passages with embeddings</td><td>The retrieval point for text. Each document is kept whole, in a shape that varies by company and quarter. Atlas Vector Search finds passages by meaning inside the same database, so the dashboard and the assistant read text straight from MongoDB (section 5).</td></tr>
+</table>
+<p><b>The rule: numbers in PostgreSQL, text in MongoDB.</b> Each kind of data goes to the database that is good at it, and is read from there. Numbers in MongoDB would lose the joins and constraints the KPIs need. Long text and embeddings in PostgreSQL would split each document into rows and need the pgvector extension. S3 alone would leave nothing queryable.</p>
+
+<h3>3.2 What goes into MongoDB</h3>
+<table>
+  <thead><tr><th style="width:17%">Collection</th><th style="width:22%">What it is</th><th style="width:16%">From</th><th style="width:15%">One document per</th><th style="width:10%">Count</th><th>Used for</th></tr></thead>
+  <tr><td><code>earnings_releases</code></td><td>Quarterly press release text and parsed tables</td><td>Feed 3 (8-K Exhibit 99.1)</td><td>Release</td><td>About 100</td><td>KPIs 11 to 13 (figures parsed into PostgreSQL); source of chunks; full text for citations</td></tr>
+  <tr><td><code>earnings_transcripts</code></td><td>Earnings call, as speaker turns</td><td>Feed 6 (Alpha Vantage)</td><td>Company &times; fiscal quarter</td><td>About 100</td><td>Source of chunks; full text for citations</td></tr>
+  <tr><td><code>document_chunks</code></td><td>Passages with embeddings</td><td>The two collections above (section 5)</td><td>Passage</td><td>About 5,000 (estimate)</td><td>Vector search by the assistant and the dashboard</td></tr>
+</table>
+<p><b>Not in MongoDB:</b> XBRL facts, prices and 13F (numbers, so PostgreSQL raw) and the submissions index (only used to find releases, kept in S3). MongoDB is both where text lands and where applications read it, through a read-only user. The schema of <code>document_chunks</code> is in section 5.2.</p>
+
+<div class="keep">
+<div class="tname">earnings_releases <span>Indexes: unique {_id}; {ticker, fiscal_period}</span></div>
+<table>
+  <thead><tr><th style="width:24%">Field</th><th style="width:14%">Type</th><th>Meaning</th></tr></thead>
+  <tr><td><code>_id</code></td><td>string</td><td>SEC accession number</td></tr>
+  <tr><td><code>ticker</code>, <code>cik</code>, <code>form</code>, <code>items</code></td><td>string, array</td><td>Company; "8-K"; reported items such as ["2.02", "9.01"]</td></tr>
+  <tr><td><code>filed_date</code>, <code>fiscal_period</code>, <code>url</code></td><td>date, string</td><td>When filed; for example "FY26 Q1"; link to the EDGAR file</td></tr>
+  <tr><td><code>text</code></td><td>string</td><td>Full press release text, HTML removed</td></tr>
+  <tr><td><code>tables[]</code></td><td>array of objects</td><td>Every HTML table: <code>caption</code>, <code>header</code>, <code>rows</code></td></tr>
+  <tr><td><code>extracted_metrics[]</code></td><td>array of objects</td><td>Values found by the parser: <code>metric</code>, <code>value_text</code>, <code>sentence</code></td></tr>
+  <tr><td><code>s3_path</code>, <code>load_id</code>, <code>loaded_at</code></td><td>string, int, date</td><td>Lineage</td></tr>
+</table>
+</div>
+<div class="keep">
+<div class="tname">earnings_transcripts <span>Index: unique {ticker, quarter}</span></div>
+<table>
+  <thead><tr><th style="width:24%">Field</th><th style="width:14%">Type</th><th>Meaning</th></tr></thead>
+  <tr><td><code>_id</code>, <code>ticker</code>, <code>quarter</code></td><td>string</td><td>For example <code>MSFT_2026Q1</code>; quarter in Alpha Vantage's fiscal-quarter format</td></tr>
+  <tr><td><code>transcript[]</code></td><td>array of objects</td><td>One entry per speaker turn: <code>speaker</code>, <code>title</code> (role), <code>content</code>, <code>sentiment</code></td></tr>
+  <tr><td><code>s3_path</code>, <code>load_id</code>, <code>loaded_at</code></td><td>string, int, date</td><td>Lineage</td></tr>
+</table>
+</div>
+<h3>3.3 PostgreSQL raw tables</h3>
+<p>Every column is <code>text</code> (the XBRL file is kept whole as one <code>jsonb</code> value), with no keys or constraints, so a malformed row is kept and logged instead of rejected. Every raw table also has <code>load_id</code>, <code>source_file</code> and <code>loaded_at</code>.</p>
+<table>
+  <thead><tr><th style="width:23%">Table</th><th>Columns (text unless noted)</th><th style="width:17%">From</th></tr></thead>
+  <tr><td><code>raw.xbrl_companyfacts</code></td><td>cik, ticker, payload (<code>jsonb</code>: the whole company facts file)</td><td>Feed 1</td></tr>
+  <tr><td><code>raw.companies_seed</code></td><td>company_name, ticker, cik, cusip, share_class, role, fiscal_year_end_month</td><td>Hand-made CSV (6 rows)</td></tr>
+  <tr><td><code>raw.stock_prices_daily</code></td><td>ticker, trade_date, open, high, low, close, adj_close, volume</td><td>Feed 4</td></tr>
+  <tr><td><code>raw.f13_submission</code></td><td>accession_number, filing_date, submissiontype, cik, periodofreport</td><td>Feed 5, SUBMISSION</td></tr>
+  <tr><td><code>raw.f13_coverpage</code></td><td>accession_number, reportcalendarorquarter, isamendment, amendmentno, amendmenttype, filingmanager_name</td><td>Feed 5, COVERPAGE</td></tr>
+  <tr><td><code>raw.f13_infotable</code></td><td>accession_number, infotable_sk, nameofissuer, titleofclass, cusip, value, sshprnamt, sshprnamttype, putcall, investmentdiscretion, voting_auth_sole, voting_auth_shared, voting_auth_none</td><td>Feed 5, INFOTABLE</td></tr>
+</table>
+<p>The full INFOTABLE is kept (all managers, all stocks) because each manager's total size is needed to rank funds. 13F column names follow the SEC readme and are checked against it before the tables are created.</p>
+<pre>-- shape of raw.xbrl_companyfacts.payload (values are placeholders that show shape)
+{ "cik": 789019, "entityName": "MICROSOFT CORPORATION",
+  "facts": { "us-gaap": { "Revenues": { "label": "Revenues",
+      "units": { "USD": [ { "start": "2025-07-01", "end": "2025-09-30", "val": &lt;number&gt;,
+          "accn": "&lt;accession no.&gt;", "fy": 2026, "fp": "Q1", "form": "10-Q", "filed": "&lt;date&gt;" } ] } } } } }</pre>
+
+<!-- ================= 4 TRANSFORMATION ================= -->
+<h2 id="transformation" class="tra">4. Data transformation</h2>
+<div class="short tra"><b>In short:</b> raw data is flattened, parsed and cleaned in the <code>staging</code> schema, checked, and then upserted into the <code>core</code> star schema, where every table has types, keys and constraints. Cleaning is done in SQL; SQL JSON functions flatten XBRL; Python only parses release text.</div>
+<figure>
+<svg viewBox="0 0 700 240" role="img" aria-label="Transformation flow from raw stores through staging and checks to core">
+  <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#777"/></marker></defs>
+  <g font-size="9" font-weight="700" fill="#555"><text x="10" y="12">RAW</text><text x="170" y="12">STAGING WORK TABLES</text><text x="372" y="12">CLEANING VIEWS</text><text x="530" y="12">CHECK, THEN LOAD</text></g>
+  <g fill="#fbf3ea" stroke="#b5651d"><rect x="10" y="20" width="140" height="40" rx="4"/><rect x="10" y="72" width="140" height="40" rx="4"/><rect x="10" y="124" width="140" height="40" rx="4"/><rect x="10" y="176" width="140" height="56" rx="4"/></g>
+  <g fill="#eef7f1" stroke="#2d7d5a"><rect x="170" y="20" width="180" height="40" rx="4"/><rect x="170" y="72" width="180" height="40" rx="4"/>
+  <rect x="372" y="20" width="140" height="212" rx="4"/></g>
+  <rect x="530" y="20" width="160" height="62" rx="4" fill="#f4effb" stroke="#7a4fb3"/>
+  <rect x="530" y="168" width="160" height="64" rx="4" fill="#eef7f1" stroke="#2d7d5a" stroke-width="1.6"/>
+  <rect x="530" y="104" width="160" height="44" rx="4" fill="#fdecec" stroke="#c0392b"/>
+  <rect x="170" y="124" width="180" height="40" rx="4" fill="#fbedf3" stroke="#a3366b" stroke-dasharray="4 3"/>
+  <g fill="none" stroke="#777" stroke-width="1.1">
+    <path d="M150 40H168" marker-end="url(#a5)"/><path d="M150 92H168" marker-end="url(#a5)"/><path d="M150 144H168" marker-end="url(#a5)"/>
+    <path d="M150 204H370" marker-end="url(#a5)"/>
+    <path d="M350 40H370" marker-end="url(#a5)"/><path d="M350 92H370" marker-end="url(#a5)"/>
+    <path d="M512 51H528" marker-end="url(#a5)"/>
+    <path d="M600 82V102" marker-end="url(#a5)" stroke="#c0392b"/>
+    <path d="M680 82V166" marker-end="url(#a5)" stroke="#2d7d5a"/>
+  </g>
+  <g font-size="8.8" fill="#1a1a1a">
+    <text x="18" y="36" font-weight="700">raw.xbrl_companyfacts</text><text x="18" y="50" fill="#555">JSON, one row per company</text>
+    <text x="18" y="88" font-weight="700">MongoDB</text><text x="18" y="102" fill="#555">earnings_releases</text>
+    <text x="18" y="140" font-weight="700">MongoDB</text><text x="18" y="154" fill="#555">earnings_transcripts</text>
+    <text x="18" y="192" font-weight="700">PostgreSQL raw.*</text><text x="18" y="206" fill="#555">prices, 13F, seed</text><text x="18" y="220" fill="#555">(already tabular)</text>
+    <text x="178" y="36" font-weight="700">staging.xbrl_facts</text><text x="178" y="50" fill="#555">SQL jsonb flatten (4.1)</text>
+    <text x="178" y="88" font-weight="700">staging.release_values</text><text x="178" y="102" fill="#555">Python parser: tables and text</text>
+    <text x="178" y="140" font-weight="700">No KPI: chunked inside</text><text x="178" y="154" fill="#555">MongoDB (section 5)</text>
+    <text x="380" y="36" font-weight="700">SQL views v_*</text>
+    <text x="380" y="56" fill="#555">cast text to types</text><text x="380" y="72" fill="#555">remove duplicates</text>
+    <text x="380" y="88" fill="#555">keep latest filing</text><text x="380" y="104" fill="#555">pick XBRL tag</text>
+    <text x="380" y="120" fill="#555">year-to-date to</text><text x="380" y="134" fill="#555">single quarters</text>
+    <text x="380" y="150" fill="#555">derive Q4</text><text x="380" y="166" fill="#555">13F: latest</text><text x="380" y="180" fill="#555">amendment, units,</text>
+    <text x="380" y="194" fill="#555">group by quarter</text><text x="380" y="214" fill="#555">missing stays null</text>
+    <text x="538" y="38" font-weight="700">Quality checks</text><text x="538" y="52" fill="#555">every result written</text><text x="538" y="66" fill="#555">to ops.dq_log</text>
+    <text x="538" y="120" font-weight="700" fill="#c0392b">Critical: stop</text><text x="538" y="134" fill="#555">core is not touched</text>
+    <text x="538" y="186" font-weight="700">Upsert into core</text><text x="538" y="200" fill="#555">star schema, one</text><text x="538" y="214" fill="#555">transaction, keys and</text><text x="538" y="228" fill="#555">constraints enforced</text>
+    <text x="640" y="160" fill="#2d7d5a">pass</text>
+  </g>
+</svg>
+<figcaption>Figure 5. Transformation: four raw inputs, two work tables, cleaning views, checks, then the core load. Transcripts feed no KPI; they are chunked inside MongoDB.</figcaption>
+</figure>
+
+<h3>4.1 Flattening XBRL inside PostgreSQL</h3>
+<p>Flattening turns one nested JSON value into many flat rows, one row per reported value. Each <code>CROSS JOIN LATERAL</code> opens one level of nesting.</p>
+<pre>INSERT INTO staging.xbrl_facts
+SELECT r.cik, tx.key AS taxonomy, c.key AS tag, u.key AS unit,
+       v -&gt;&gt; 'start' AS period_start, v -&gt;&gt; 'end' AS period_end, v -&gt;&gt; 'val' AS value,
+       v -&gt;&gt; 'accn' AS accession_no, v -&gt;&gt; 'fy' AS fiscal_year, v -&gt;&gt; 'fp' AS fiscal_period,
+       v -&gt;&gt; 'form' AS form, v -&gt;&gt; 'filed' AS filed_date, r.load_id
+FROM raw.xbrl_companyfacts r
+CROSS JOIN LATERAL jsonb_each(r.payload -&gt; 'facts') tx         -- us-gaap, dei
+CROSS JOIN LATERAL jsonb_each(tx.value) c                      -- one entry per concept
+CROSS JOIN LATERAL jsonb_each(c.value -&gt; 'units') u            -- USD, shares, USD/shares
+CROSS JOIN LATERAL jsonb_array_elements(u.value) v             -- one row per reported value
+WHERE c.key IN (SELECT tag FROM ops.xbrl_concept_map)
+  AND r.load_id = (SELECT max(x.load_id) FROM raw.xbrl_companyfacts x WHERE x.cik = r.cik);</pre>
+<p>Only the newest file per company is read. Shares and per-share values come out of the same query, with unit <code>shares</code> or <code>USD/shares</code>.</p>
+
+<h3>4.2 Staging work tables</h3>
+<p>Emptied and rebuilt on every load. Columns are text; the views below cast them. Nothing in staging is a source of truth.</p>
+<table>
+  <thead><tr><th style="width:24%">Table</th><th style="width:46%">Columns</th><th>Filled by</th></tr></thead>
+  <tr><td><code>staging.xbrl_facts</code></td><td>cik, taxonomy, tag, unit, period_start, period_end, value, accession_no, fiscal_year, fiscal_period, form, filed_date, load_id</td><td>SQL flatten (4.1)</td></tr>
+  <tr><td><code>staging.release_values</code></td><td>ticker, accession_no, fiscal_period, metric_code, value_text, unit, found_in ('table' or 'text'), source_sentence, load_id</td><td>Parser over MongoDB <code>earnings_releases</code></td></tr>
+</table>
+
+<h3>4.3 Cleaning views</h3>
+<table>
+  <thead><tr><th style="width:27%">View</th><th>What it does</th></tr></thead>
+  <tr><td><code>staging.v_quarterly_financials</code></td><td>Picks each company's XBRL tag by priority (<code>ops.xbrl_concept_map</code>); keeps the latest-filed value per period; turns year-to-date flows (CapEx, operating cash flow) into single quarters; derives Q4 = full year - Q1 - Q2 - Q3. Balance-sheet values (PP&amp;E, debt, cash, shares) are taken as reported.</td></tr>
+  <tr><td><code>staging.v_release_values</code></td><td>Casts parsed values to numbers, attaches the unit, flags text-parsed values for a manual check.</td></tr>
+  <tr><td><code>staging.v_prices</code></td><td>Casts types, removes exact duplicate days, maps ticker to company.</td></tr>
+  <tr><td><code>staging.v_f13_holdings</code></td><td>Joins the three 13F tables; groups by <code>periodofreport</code>; keeps the latest amendment per manager and quarter; multiplies pre-2023 values by 1,000; keeps share lines (<code>sshprnamttype</code> = SH) with empty <code>putcall</code>.</td></tr>
+</table>
+
+<h3>4.4 Quality checks</h3>
+<p>Each check writes a row to <code>ops.dq_log</code> with the rows affected and the action taken. <b>Critical</b> issues stop the load before core changes. <b>Recoverable</b> issues are corrected, excluded or kept as null, and logged.</p>
+<table>
+  <thead><tr><th style="width:20%">Check</th><th style="width:44%">Expected result, written down before running</th><th>Catches</th></tr></thead>
+  <tr><td>Types</td><td>Every value converts to its number or date type</td><td>Malformed source rows</td></tr>
+  <tr><td>Duplicates</td><td>Repeated price days and XBRL facts counted; one kept</td><td>Double loads, restated filings</td></tr>
+  <tr><td>Completeness (critical)</td><td>Every company has revenue, CapEx and operating income for every quarter</td><td>A KPI silently missing</td></tr>
+  <tr><td>Quarters add up</td><td>Q1 + Q2 + Q3 + Q4 CapEx and operating cash flow equal the 10-K annual figure exactly</td><td>Year-to-date conversion errors</td></tr>
+  <tr><td>13F implied price</td><td><code>value / shares</code> is close to the quarter-end close</td><td>Unit errors (off by exactly 1,000 times)</td></tr>
+  <tr><td>XBRL vs release</td><td>Quarterly revenue from XBRL equals the release revenue</td><td>The wrong tag mapped to revenue</td></tr>
+  <tr><td>Identity coverage (critical)</td><td>All 5 companies matched in every source; unmatched count 0</td><td>A missing CUSIP or ticker dropping a company</td></tr>
+  <tr><td>Rerun, empty file</td><td>A second run leaves counts unchanged; an empty file fails before writing</td><td>Duplicate loads; a guard that never fires</td></tr>
+</table>
+
+<h4>Known data quality issues and their fixes</h4>
+<table>
+  <thead><tr><th style="width:42%">Issue</th><th style="width:12%">Source</th><th>Fix</th></tr></thead>
+  <tr><td>10-Q cash-flow figures are year-to-date</td><td>XBRL</td><td>Subtract the prior quarter's year-to-date value</td></tr>
+  <tr><td>Q4 is not filed on its own</td><td>XBRL</td><td>Q4 = 10-K full year - Q1 - Q2 - Q3</td></tr>
+  <tr><td>Same fact in several filings, sometimes restated</td><td>XBRL</td><td>Keep the most recently filed value</td></tr>
+  <tr><td>Companies use different tags for the same item</td><td>XBRL</td><td><code>ops.xbrl_concept_map</code> with a priority order</td></tr>
+  <tr><td>Balance-sheet values are snapshots, not period totals</td><td>XBRL</td><td><code>measure_type = 'point'</code>: never subtracted or added up</td></tr>
+  <tr><td>Fiscal years differ (Microsoft June, NVIDIA late January)</td><td>All</td><td><code>dim_fiscal_period</code> stores fiscal and calendar quarter</td></tr>
+  <tr><td>Product KPIs come from tables or from a growth % in text</td><td>Releases</td><td>Store unit and source sentence; text values checked by hand</td></tr>
+  <tr><td>13F data sets mix quarters (grouped by filing date)</td><td>13F</td><td>Group by <code>periodofreport</code></td></tr>
+  <tr><td>13F <code>VALUE</code> in thousands before January 3, 2023</td><td>13F</td><td>Multiply pre-2023 values by 1,000</td></tr>
+  <tr><td>13F amendments, options and non-share lines</td><td>13F</td><td>Latest amendment; SH lines with empty <code>putcall</code></td></tr>
+  <tr><td>Alphabet has two share classes</td><td>13F, prices</td><td>Two rows in <code>dim_security</code>; summed for ownership; GOOGL for price</td></tr>
+  <tr><td>Missing trading days; NVIDIA 10-for-1 split in 2024</td><td>Prices</td><td><code>adj_close</code> for returns; row counts checked per month</td></tr>
+  <tr><td>Transcripts cover about 20 quarters and may miss some</td><td>Transcripts</td><td>Coverage measured; the assistant says when a quarter has no transcript</td></tr>
+  <tr><td>Missing values anywhere</td><td>All</td><td>Never stored as zero; a missing value is a missing row, shown as null</td></tr>
+</table>
+
+<h3>4.5 Core: the star schema</h3>
+<p>A star schema keeps numbers in <b>fact tables</b> and descriptions in <b>dimension tables</b> (which company, which quarter, which metric). Each fact row points to its dimensions by key, so every question is "pick facts, join dimensions".</p>
+<figure>
+<svg viewBox="0 0 700 330" role="img" aria-label="Star schema: facts in the middle, dimensions on the sides">
+  <g fill="#fff" stroke="#1f5fbf" stroke-width="1.2">
+    <rect x="10" y="20" width="170" height="74" rx="4"/><rect x="10" y="118" width="170" height="74" rx="4"/><rect x="10" y="226" width="170" height="74" rx="4"/>
+    <rect x="520" y="20" width="170" height="74" rx="4"/><rect x="520" y="226" width="170" height="74" rx="4"/>
+  </g>
+  <g fill="#eef7f1" stroke="#2d7d5a" stroke-width="1.2">
+    <rect x="265" y="60" width="170" height="70" rx="4"/>
+    <rect x="265" y="176" width="170" height="40" rx="4"/><rect x="265" y="228" width="170" height="40" rx="4"/><rect x="265" y="280" width="170" height="40" rx="4"/>
+  </g>
+  <g stroke="#999" stroke-width="1" fill="none">
+    <path d="M180 57L265 85"/>
+    <path d="M180 155L265 105"/>
+    <path d="M180 260L265 194"/><path d="M180 266L265 246"/>
+    <path d="M520 57L435 95"/><path d="M520 256L435 250"/><path d="M520 270L435 298"/>
+    <path d="M95 226V192"/>
+  </g>
+  <g font-size="9.3" fill="#1a1a1a">
+    <text x="18" y="36" font-weight="700">dim_company</text><text x="18" y="50" fill="#555">company_id PK</text><text x="18" y="63" fill="#555">ticker, cik (unique)</text><text x="18" y="76" fill="#555">company_name, role</text><text x="18" y="89" fill="#555">fiscal_year_end_month</text>
+    <text x="18" y="134" font-weight="700">dim_fiscal_period</text><text x="18" y="148" fill="#555">period_id PK, company_id FK</text><text x="18" y="161" fill="#555">fiscal_year, fiscal_quarter</text><text x="18" y="174" fill="#555">period_start, period_end</text><text x="18" y="187" fill="#555">calendar_year, calendar_quarter</text>
+    <text x="18" y="242" font-weight="700">dim_security</text><text x="18" y="256" fill="#555">cusip PK, ticker (unique)</text><text x="18" y="269" fill="#555">company_id FK</text><text x="18" y="282" fill="#555">share_class</text>
+    <text x="528" y="36" font-weight="700">dim_metric</text><text x="528" y="50" fill="#555">metric_id PK, metric_code</text><text x="528" y="63" fill="#555">unit, measure_type</text><text x="528" y="76" fill="#555">kpi_group, company_id</text><text x="528" y="89" fill="#555">source</text>
+    <text x="528" y="242" font-weight="700">dim_manager</text><text x="528" y="256" fill="#555">manager_cik PK</text><text x="528" y="269" fill="#555">manager_name</text>
+    <text x="273" y="82" font-weight="700">fact_reported_metric</text><text x="273" y="97" fill="#555">company, period, metric</text><text x="273" y="111" fill="#555">value, accession_no, derivation</text>
+    <text x="273" y="192" font-weight="700">fact_price_daily</text><text x="273" y="206" fill="#555">ticker, trade_date: close, adj_close</text>
+    <text x="273" y="244" font-weight="700">fact_holding</text><text x="273" y="258" fill="#555">manager, cusip, quarter_end</text>
+    <text x="273" y="296" font-weight="700">fact_manager_quarter</text><text x="273" y="310" fill="#555">manager, quarter_end: total value</text>
+  </g>
+</svg>
+<figcaption>Figure 6. Core star schema. Blue = dimensions, green = facts. Lines are foreign keys. Text chunks are not here: they live in MongoDB (section 5).</figcaption>
+</figure>
+
+<h4>Dimension tables</h4>
+<table>
+  <thead><tr><th style="width:20%">Table</th><th style="width:43%">Columns and types</th><th>Keys and constraints</th></tr></thead>
+  <tr><td><code>core.dim_company</code><br>5 rows</td><td>company_id smallint, company_name text, ticker text, cik char(10), role text, fiscal_year_end_month smallint</td><td>PK company_id; ticker, cik unique and not null; role in ('buyer','supplier'); month 1 to 12</td></tr>
+  <tr><td><code>core.dim_security</code><br>6 rows</td><td>cusip char(9), ticker text, company_id smallint, share_class text</td><td>PK cusip; ticker unique; FK company_id</td></tr>
+  <tr><td><code>core.dim_fiscal_period</code></td><td>period_id serial, company_id smallint, fiscal_year smallint, fiscal_quarter smallint, period_start date, period_end date, calendar_year smallint, calendar_quarter smallint</td><td>PK period_id; unique (company_id, fiscal_year, fiscal_quarter); quarter 1 to 4; period_end &gt; period_start</td></tr>
+  <tr><td><code>core.dim_metric</code></td><td>metric_id smallint, metric_code text, metric_name text, unit text, measure_type text, kpi_group text, company_id smallint null, source text</td><td>PK metric_id; metric_code unique; unit in ('usd','pct','ratio','usd_per_share','shares'); measure_type in ('flow','point'); company_id only for product metrics</td></tr>
+  <tr><td><code>core.dim_manager</code></td><td>manager_cik char(10), manager_name text</td><td>PK manager_cik</td></tr>
+</table>
+<p><code>measure_type</code> drives yearly roll-ups for every metric: a <b>flow</b> (revenue, CapEx, R&amp;D) is added over four quarters; a <b>point</b> value (PP&amp;E, debt, cash, shares) is taken at fiscal year end. Calendar quarter is the quarter holding most of the fiscal quarter's months, so NVIDIA's August to October quarter lines up with calendar Q3.</p>
+
+<h4>Fact tables</h4>
+<table>
+  <thead><tr><th style="width:19%">Table</th><th style="width:16%">One row is</th><th style="width:33%">Columns and types</th><th>Keys and constraints</th></tr></thead>
+  <tr><td><code>core.fact_reported_metric</code></td><td>One company, one fiscal quarter, one metric</td><td>company_id smallint, period_id int, metric_id smallint, value numeric(20,4), source_type text, accession_no text, filed_date date, derivation text, load_id bigint</td><td>PK (company_id, period_id, metric_id); 3 FKs; value not null; source_type in ('xbrl','earnings_release'); derivation in ('reported','ytd_subtraction','fy_minus_9m')</td></tr>
+  <tr><td><code>core.fact_price_daily</code></td><td>One share class, one trading day</td><td>ticker text, trade_date date, close numeric(12,4), adj_close numeric(12,4), volume bigint, load_id bigint</td><td>PK (ticker, trade_date); FK ticker; adj_close &gt; 0</td></tr>
+  <tr><td><code>core.fact_holding</code></td><td>One manager, one security, one quarter end</td><td>manager_cik char(10), cusip char(9), quarter_end date, shares bigint, value_usd numeric(20,2), accession_no text, load_id bigint</td><td>PK (manager_cik, cusip, quarter_end); 2 FKs; shares, value &ge; 0. The FK to <code>dim_security</code> admits only our six CUSIPs.</td></tr>
+  <tr><td><code>core.fact_manager_quarter</code></td><td>One manager, one quarter end</td><td>manager_cik char(10), quarter_end date, portfolio_value_usd numeric(22,2), holdings_count int</td><td>PK (manager_cik, quarter_end); value &ge; 0; built from the full INFOTABLE to rank funds by size</td></tr>
+</table>
+<p>Every core load is an upsert (<code>INSERT ... ON CONFLICT DO UPDATE</code>) in one transaction, so a rerun changes nothing and a failure leaves core as it was.</p>
+
+<!-- ================= 5 VECTOR ================= -->
+<h2 id="vector" class="vec">5. Vector database (MongoDB)</h2>
+<div class="short vec"><b>In short:</b> release and call text is cut into passages of about 500 tokens. Each passage is turned into a list of numbers that captures its meaning (an embedding) and stored as one document in the MongoDB collection <code>document_chunks</code>, next to the documents it came from. An Atlas Vector Search index finds passages by meaning. Numbers never come from here: they come from PostgreSQL.</div>
+
+<h3>5.1 What goes into the vector collection</h3>
+<table>
+  <thead><tr><th style="width:17%">source_type</th><th style="width:26%">Comes from</th><th style="width:35%">How it is cut into chunks</th><th>Why it is useful</th></tr></thead>
+  <tr><td><code>transcript</code></td><td>MongoDB <code>earnings_transcripts</code></td><td>One chunk per speaker turn; long turns cut at about 500 tokens with a short overlap; <code>speaker</code> kept</td><td>Management's own words, and analysts' questions on AI spending</td></tr>
+  <tr><td><code>earnings_release</code></td><td>MongoDB <code>earnings_releases</code></td><td>Split by paragraph and section heading; tables are not embedded (their numbers are in SQL)</td><td>Official statements about products and outlook</td></tr>
+</table>
+<p>Not embedded: XBRL facts, prices, 13F and KPI values. They are numbers, so SQL answers them exactly.</p>
+
+<h3>5.2 How a chunk is stored</h3>
+<figure>
+<svg viewBox="0 0 700 92" role="img" aria-label="Document to chunk to embedding to MongoDB document">
+  <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#777"/></marker></defs>
+  <g stroke-width="1.2">
+    <rect x="2" y="10" width="125" height="70" rx="5" fill="#fbf3ea" stroke="#b5651d"/>
+    <rect x="145" y="10" width="125" height="70" rx="5" fill="#fbedf3" stroke="#a3366b"/>
+    <rect x="288" y="10" width="125" height="70" rx="5" fill="#fbedf3" stroke="#a3366b"/>
+    <rect x="431" y="10" width="125" height="70" rx="5" fill="#fbedf3" stroke="#a3366b"/>
+    <rect x="574" y="10" width="123" height="70" rx="5" fill="#fbedf3" stroke="#a3366b"/>
+  </g>
+  <g fill="none" stroke="#777" stroke-width="1.2"><path d="M127 45H143" marker-end="url(#a6)"/><path d="M270 45H286" marker-end="url(#a6)"/><path d="M413 45H429" marker-end="url(#a6)"/><path d="M556 45H572" marker-end="url(#a6)"/></g>
+  <g font-size="9" fill="#1a1a1a">
+    <text x="10" y="28" font-weight="700">1. Read document</text><text x="10" y="43" fill="#555">from MongoDB, with</text><text x="10" y="56" fill="#555">company, quarter,</text><text x="10" y="69" fill="#555">source id</text>
+    <text x="153" y="28" font-weight="700">2. Split</text><text x="153" y="43" fill="#555">by speaker turn or</text><text x="153" y="56" fill="#555">paragraph, about</text><text x="153" y="69" fill="#555">500 tokens each</text>
+    <text x="296" y="28" font-weight="700">3. Embed</text><text x="296" y="43" fill="#555">model turns each</text><text x="296" y="56" fill="#555">chunk into 384 or</text><text x="296" y="69" fill="#555">1,536 numbers</text>
+    <text x="439" y="28" font-weight="700">4. Upsert document</text><text x="439" y="43" fill="#555">into document_chunks:</text><text x="439" y="56" fill="#555">text, embedding,</text><text x="439" y="69" fill="#555">company, quarter</text>
+    <text x="582" y="28" font-weight="700">5. Index</text><text x="582" y="43" fill="#555">Atlas Vector</text><text x="582" y="56" fill="#555">Search finds the</text><text x="582" y="69" fill="#555">nearest chunks</text>
+  </g>
+</svg>
+<figcaption>Figure 7. From document to searchable chunk, all inside MongoDB. The collection can be rebuilt from the source documents at any time, for example after changing the model.</figcaption>
+</figure>
+<div class="keep">
+<div class="tname">document_chunks <span>Indexes: unique {source_id, chunk_index}; vector index chunks_vector</span></div>
+<table>
+  <thead><tr><th style="width:26%">Field</th><th style="width:18%">Type</th><th>Meaning</th></tr></thead>
+  <tr><td><code>_id</code></td><td>string</td><td><code>source_id</code> + "_" + <code>chunk_index</code>, so a rerun overwrites a chunk instead of adding a copy</td></tr>
+  <tr><td><code>ticker</code>, <code>fiscal_year</code>, <code>fiscal_quarter</code></td><td>string, int, int</td><td>Same values as <code>dim_company</code> and <code>dim_fiscal_period</code> in PostgreSQL, so text and KPIs line up; used as search filters</td></tr>
+  <tr><td><code>source_type</code></td><td>string</td><td>'transcript' or 'earnings_release'</td></tr>
+  <tr><td><code>source_id</code></td><td>string</td><td><code>_id</code> of the release (SEC accession number) or transcript; cited in answers and used to fetch the full document</td></tr>
+  <tr><td><code>speaker</code></td><td>string</td><td>Who said it (transcripts only)</td></tr>
+  <tr><td><code>chunk_index</code></td><td>int</td><td>Order within the document</td></tr>
+  <tr><td><code>text</code></td><td>string</td><td>The passage itself</td></tr>
+  <tr><td><code>embedding</code></td><td>array of numbers</td><td>384 numbers for <code>all-MiniLM-L6-v2</code> (free, runs locally) or 1,536 for OpenAI <code>text-embedding-3-small</code> (paid per token); team to choose</td></tr>
+  <tr><td><code>embedding_model</code>, <code>created_at</code></td><td>string, date</td><td>Which model produced it, so the collection can be re-embedded; load time</td></tr>
+</table>
+</div>
+<pre>// Atlas Vector Search index "chunks_vector" on document_chunks
+{ "fields": [
+  { "type": "vector", "path": "embedding", "numDimensions": 384, "similarity": "cosine" },
+  { "type": "filter", "path": "ticker" },
+  { "type": "filter", "path": "fiscal_year" },
+  { "type": "filter", "path": "fiscal_quarter" },
+  { "type": "filter", "path": "source_type" } ] }
+
+// query: the 8 passages closest to the question, Microsoft only, fiscal 2026 onward
+db.document_chunks.aggregate([
+  { $vectorSearch: { index: "chunks_vector", path: "embedding",
+      queryVector: &lt;embedding of the question&gt;, numCandidates: 200, limit: 8,
+      filter: { ticker: "MSFT", fiscal_year: { $gte: 2026 } } } },
+  { $project: { _id: 0, text: 1, ticker: 1, fiscal_year: 1, fiscal_quarter: 1,
+                source_id: 1, speaker: 1, score: { $meta: "vectorSearchScore" } } }
+])</pre>
+<p><code>numDimensions</code> must match the chosen model (384 or 1,536). A field can be used in the search filter only if the index declares it as a <code>filter</code> field.</p>
+
+<h3>5.3 How the assistant answers a question</h3>
+<figure>
+<svg viewBox="0 0 700 200" role="img" aria-label="The LLM uses SQL on PostgreSQL for numbers and vector search on MongoDB for text">
+  <defs><marker id="a7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#777"/></marker></defs>
+  <rect x="2" y="70" width="130" height="56" rx="5" fill="#fff" stroke="#1f5fbf"/>
+  <rect x="160" y="70" width="130" height="56" rx="5" fill="#fff" stroke="#1f5fbf"/>
+  <rect x="320" y="10" width="200" height="66" rx="5" fill="#eaf1fb" stroke="#1f5fbf"/>
+  <rect x="320" y="120" width="200" height="66" rx="5" fill="#fbedf3" stroke="#a3366b"/>
+  <rect x="550" y="70" width="147" height="56" rx="5" fill="#eaf1fb" stroke="#1f5fbf" stroke-width="1.6"/>
+  <g fill="none" stroke="#777" stroke-width="1.2">
+    <path d="M132 98H158" marker-end="url(#a7)"/><path d="M290 90L318 50" marker-end="url(#a7)"/><path d="M290 106L318 150" marker-end="url(#a7)"/>
+    <path d="M520 43L548 88" marker-end="url(#a7)"/><path d="M520 153L548 110" marker-end="url(#a7)"/>
+  </g>
+  <g font-size="9" fill="#1a1a1a">
+    <text x="10" y="88" font-weight="700">Question</text><text x="10" y="102" fill="#555">"Which companies improved</text><text x="10" y="115" fill="#555">most, and why?"</text>
+    <text x="168" y="88" font-weight="700">LLM with two tools</text><text x="168" y="102" fill="#555">picks the tool each part</text><text x="168" y="115" fill="#555">of the question needs</text>
+    <text x="328" y="28" font-weight="700">Tool 1: SQL on PostgreSQL (numbers)</text><text x="328" y="43" fill="#555">read-only queries on serving views,</text><text x="328" y="56" fill="#555">for example financial_improvement</text><text x="328" y="69" fill="#555">ranks companies by KPIs improved</text>
+    <text x="328" y="138" font-weight="700">Tool 2: MongoDB vector search (text)</text><text x="328" y="153" fill="#555">$vectorSearch on document_chunks,</text><text x="328" y="166" fill="#555">filtered by company and quarter,</text><text x="328" y="179" fill="#555">for management's explanation</text>
+    <text x="558" y="88" font-weight="700">Answer</text><text x="558" y="102" fill="#555">figures from SQL, quotes</text><text x="558" y="115" fill="#555">with their source cited</text>
+  </g>
+</svg>
+<figcaption>Figure 8. Numbers always come from SQL, never from text, so the assistant cannot invent a figure. The two tools meet on ticker and fiscal quarter.</figcaption>
+</figure>
+<p><b>Why the vectors live in MongoDB.</b> The text is already in MongoDB, so each chunk sits next to the document it came from, and the vector index runs on the same cluster with no extra extension or service. The cost: one query can no longer join a passage to a KPI. The assistant calls the two tools separately and matches the results on ticker and fiscal quarter.</p>
+<p><b>Size check.</b> The free Atlas cluster holds 0.5 GB, indexes included. Expected, not measured: about 5,000 chunks (roughly 40 per call and 10 per release, times 100 each). At about 13 bytes per stored number, embeddings take about 25 MB with 384 numbers or 100 MB with 1,536, plus a few tens of MB of text. Real sizes are logged at the first load. If they come near the limit, the fix is a paid tier or storing embeddings in compact binary form.</p>
+
+<!-- ================= 6 SERVING ================= -->
+<h2 id="serving" class="ser">6. Data serving</h2>
+<div class="short ser"><b>In short:</b> SQL views turn the core star schema into analysis-ready tables: one row per company per quarter (or year), one column per KPI. Every view has the same key columns, so they join and filter the same way. Views always show the latest load. Serving is the retrieval point for numbers; MongoDB (section 5) is the retrieval point for text.</div>
+<figure>
+<svg viewBox="0 0 700 120" role="img" aria-label="Core facts pivot into KPI views which feed dashboard pages">
+  <defs><marker id="a8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#777"/></marker></defs>
+  <rect x="2" y="20" width="150" height="80" rx="5" fill="#eef7f1" stroke="#2d7d5a"/>
+  <rect x="180" y="20" width="150" height="80" rx="5" fill="#eaf1fb" stroke="#1f5fbf"/>
+  <rect x="358" y="20" width="170" height="80" rx="5" fill="#eaf1fb" stroke="#1f5fbf" stroke-width="1.6"/>
+  <rect x="556" y="20" width="141" height="80" rx="5" fill="#fff" stroke="#1f5fbf"/>
+  <g fill="none" stroke="#777" stroke-width="1.2"><path d="M152 60H178" marker-end="url(#a8)"/><path d="M330 60H356" marker-end="url(#a8)"/><path d="M528 60H554" marker-end="url(#a8)"/></g>
+  <g font-size="9" fill="#1a1a1a">
+    <text x="10" y="38" font-weight="700">core facts (long)</text><text x="10" y="53" fill="#555">one row per company,</text><text x="10" y="66" fill="#555">quarter and metric</text><text x="10" y="79" fill="#555">+ dimensions</text>
+    <text x="188" y="38" font-weight="700">pivot + KPI math</text><text x="188" y="53" fill="#555">one column per input;</text><text x="188" y="66" fill="#555">growth vs same quarter</text><text x="188" y="79" fill="#555">last year, by key</text>
+    <text x="366" y="38" font-weight="700">Serving views (wide)</text><text x="366" y="53" fill="#555">Tables 1 to 8: one row per</text><text x="366" y="66" fill="#555">company per quarter or year</text><text x="366" y="79" fill="#555">+ 3 helper views</text>
+    <text x="564" y="38" font-weight="700">Consumers</text><text x="564" y="53" fill="#555">dashboard pages,</text><text x="564" y="66" fill="#555">LLM SQL tool</text>
+  </g>
+</svg>
+<figcaption>Figure 9. Long facts in core become wide KPI views in serving.</figcaption>
+</figure>
+
+<h3>6.1 The 16 KPIs</h3>
+<table>
+  <thead><tr><th>#</th><th style="width:22%">KPI</th><th style="width:11%">Group</th><th style="width:34%">Formula</th><th>Inputs</th></tr></thead>
+  <tr><td>1</td><td>Revenue ($)</td><td>Financial</td><td>Reported total revenue</td><td>XBRL</td></tr>
+  <tr><td>2</td><td>Revenue Growth (YoY %)</td><td>Financial</td><td>(Rev - Rev same fiscal quarter last year) / Rev last year</td><td>KPI 1</td></tr>
+  <tr><td>3</td><td>Capital Expenditure ($)</td><td>Financial</td><td>Purchases of property and equipment</td><td>XBRL</td></tr>
+  <tr><td>4</td><td>CapEx Growth (YoY %)</td><td>Financial</td><td>(CapEx - CapEx last year) / CapEx last year</td><td>KPI 3</td></tr>
+  <tr><td>5</td><td>CapEx / Revenue (%)</td><td>Financial</td><td>CapEx / Revenue</td><td>KPIs 1, 3</td></tr>
+  <tr><td>6</td><td>Operating Margin (%)</td><td>Financial</td><td>Operating income / Revenue</td><td>XBRL</td></tr>
+  <tr><td>7</td><td>Free Cash Flow ($)</td><td>Financial</td><td>Operating cash flow - CapEx</td><td>XBRL</td></tr>
+  <tr><td>8</td><td>P/E</td><td>Valuation</td><td>Share price / TTM diluted EPS</td><td>Prices, XBRL</td></tr>
+  <tr><td>9</td><td>EV / Revenue</td><td>Valuation</td><td>(Market cap + total debt - cash) / TTM revenue</td><td>Prices, XBRL</td></tr>
+  <tr><td>10</td><td>Free Cash Flow Yield (%)</td><td>Valuation</td><td>TTM FCF / Market cap</td><td>KPI 7, prices</td></tr>
+  <tr><td>11</td><td>Product Revenue ($)</td><td>Product</td><td>Microsoft Cloud, Google Cloud, AWS, Family of Apps, Data Center revenue</td><td>Releases</td></tr>
+  <tr><td>12</td><td>Product Growth (%)</td><td>Product</td><td>Growth of KPI 11 (Azure growth taken as stated; Meta: advertising revenue growth)</td><td>Releases</td></tr>
+  <tr><td>13</td><td>Monetization / Efficiency</td><td>Product</td><td>Microsoft Cloud gross margin, Google Cloud and AWS operating margin, Meta revenue per person, NVIDIA Data Center share of revenue</td><td>Releases</td></tr>
+  <tr><td>14</td><td>R&amp;D Intensity (%)</td><td>AI investment</td><td>R&amp;D expense / Revenue</td><td>XBRL</td></tr>
+  <tr><td>15</td><td>Build-out Growth (YoY %)</td><td>AI investment</td><td>Growth of net property, plant and equipment (data centers, servers, chips)</td><td>XBRL</td></tr>
+  <tr><td>16</td><td>CapEx Payback Ratio</td><td>AI investment</td><td>(TTM revenue - TTM revenue a year earlier) / TTM CapEx a year earlier; four buyers only</td><td>KPIs 1, 3</td></tr>
+</table>
+<p>TTM = trailing twelve months, the sum of the last four quarters. No company reports "AI spending" on its own, so KPIs 14 to 16 are proxies (stand-in measures) and are labelled that way. Valuation KPIs use the split-adjusted close on the last trading day of the period. XBRL tags for each input are listed in <code>ops.xbrl_concept_map</code> and still need checking against each company's filings.</p>
+
+<h3>6.2 Serving views and their columns</h3>
+<p>Shared key columns in every company view: <code>company_name</code>, <code>ticker</code>, <code>fiscal_year</code>, <code>fiscal_quarter</code> (quarterly views only), <code>period_end</code>, <code>calendar_year</code>, <code>calendar_quarter</code>.</p>
+<table>
+  <thead><tr><th style="width:7%">Table</th><th style="width:30%">View</th><th style="width:15%">One row is</th><th>KPI columns</th></tr></thead>
+  <tr><td>1, 2</td><td><code>serving.financial_metrics_quarterly</code>, <code>_yearly</code></td><td>Company &times; quarter / year</td><td>revenue_usd, revenue_growth_yoy_pct, capex_usd, capex_growth_yoy_pct, capex_to_revenue_pct, operating_margin_pct, free_cash_flow_usd</td></tr>
+  <tr><td>3, 4</td><td><code>serving.valuation_metrics_quarterly</code>, <code>_yearly</code> (materialized)</td><td>Company &times; quarter / year</td><td>price_date, pe_ratio, ev_to_revenue, fcf_yield_pct</td></tr>
+  <tr><td>5, 6</td><td><code>serving.product_metrics_quarterly</code>, <code>_yearly</code></td><td>Company &times; quarter / year</td><td>product_revenue_usd, product_growth_pct, monetization_value, monetization_unit</td></tr>
+  <tr><td>7, 8</td><td><code>serving.ai_investment_metrics_quarterly</code>, <code>_yearly</code></td><td>Company &times; quarter / year</td><td>rd_to_revenue_pct, ppe_growth_yoy_pct, capex_payback_ratio</td></tr>
+  <tr><td></td><td><code>serving.institutional_holdings_quarterly</code></td><td>Company &times; manager &times; quarter</td><td>quarter_end, manager_cik, manager_name, shares, value_usd, shares_change, manager_value_rank</td></tr>
+  <tr><td></td><td><code>serving.ai_money_flow_quarterly</code></td><td>Calendar quarter</td><td>buyers_capex_usd (four buyers summed), nvidia_data_center_revenue_usd, buyers_capex_growth_yoy_pct, nvidia_data_center_growth_yoy_pct</td></tr>
+  <tr><td></td><td><code>serving.financial_improvement</code></td><td>Company (latest quarter)</td><td>revenue_growth_yoy_pct, operating_margin_change_pts, fcf_change_pct, capex_to_revenue_change_pts, kpis_improved (0 to 7), improvement_rank</td></tr>
+</table>
+<h4>Example rows: Table 1 (<code>financial_metrics_quarterly</code>)</h4>
+<table>
+  <thead><tr><th>Company</th><th>Fiscal period</th><th>Months</th><th>Revenue ($)</th><th>Revenue Growth (%)</th><th>CapEx ($)</th><th>CapEx Growth (%)</th><th>CapEx / Revenue (%)</th><th>Operating Margin (%)</th><th>Free Cash Flow ($)</th></tr></thead>
+  <tr><td>Alphabet</td><td>Q3 2026</td><td>Jul to Sep 2026</td><td>...</td><td>...</td><td>...</td><td>...</td><td>...</td><td>...</td><td>...</td></tr>
+  <tr><td>Microsoft</td><td>FY27 Q1</td><td>Jul to Sep 2026</td><td>...</td><td>...</td><td>...</td><td>...</td><td>...</td><td>...</td><td>...</td></tr>
+  <tr><td>NVIDIA</td><td>FY27 Q3</td><td>Aug to Oct 2026</td><td>...</td><td>...</td><td>...</td><td>...</td><td>...</td><td>...</td><td>...</td></tr>
+</table>
+<h4>Quarterly vs yearly</h4>
+<table>
+  <thead><tr><th style="width:24%"></th><th>Quarterly views</th><th>Yearly views</th></tr></thead>
+  <tr><td>One row per</td><td>Company per fiscal quarter (about 27 per company since 2020)</td><td>Company per complete fiscal year (about 6 per company)</td></tr>
+  <tr><td>Flow values</td><td>As reported for the quarter</td><td>Sum of the 4 quarters</td></tr>
+  <tr><td>Point values</td><td>Value at quarter end</td><td>Value at fiscal year end</td></tr>
+  <tr><td>Percentages and ratios</td><td>Calculated for the quarter</td><td>Recalculated from yearly totals, never added up</td></tr>
+  <tr><td>Growth compares with</td><td>Same fiscal quarter a year earlier</td><td>Previous fiscal year</td></tr>
+</table>
+<h4>How a view is written: Table 1</h4>
+<pre>CREATE VIEW serving.financial_metrics_quarterly AS
+WITH q AS (                                   -- pivot: one row per company and quarter, one column per input
+  SELECT f.company_id, f.period_id,
+         MAX(f.value) FILTER (WHERE m.metric_code = 'revenue')             AS revenue,
+         MAX(f.value) FILTER (WHERE m.metric_code = 'capex')               AS capex,
+         MAX(f.value) FILTER (WHERE m.metric_code = 'operating_income')    AS operating_income,
+         MAX(f.value) FILTER (WHERE m.metric_code = 'operating_cash_flow') AS operating_cash_flow
+  FROM core.fact_reported_metric f
+  JOIN core.dim_metric m USING (metric_id)
+  GROUP BY f.company_id, f.period_id
+)
+SELECT c.company_name, c.ticker, p.fiscal_year, p.fiscal_quarter, p.period_end,
+       p.calendar_year, p.calendar_quarter,
+       q.revenue                                        AS revenue_usd,
+       100 * (q.revenue / NULLIF(ly.revenue, 0) - 1)    AS revenue_growth_yoy_pct,
+       q.capex                                          AS capex_usd,
+       100 * (q.capex / NULLIF(ly.capex, 0) - 1)        AS capex_growth_yoy_pct,
+       100 * q.capex / NULLIF(q.revenue, 0)             AS capex_to_revenue_pct,
+       100 * q.operating_income / NULLIF(q.revenue, 0)  AS operating_margin_pct,
+       q.operating_cash_flow - q.capex                  AS free_cash_flow_usd
+FROM q
+JOIN core.dim_fiscal_period p ON p.period_id = q.period_id
+JOIN core.dim_company c       ON c.company_id = q.company_id
+LEFT JOIN core.dim_fiscal_period pl                     -- same fiscal quarter, one year earlier
+       ON pl.company_id = p.company_id
+      AND pl.fiscal_year = p.fiscal_year - 1
+      AND pl.fiscal_quarter = p.fiscal_quarter
+LEFT JOIN q ly ON ly.period_id = pl.period_id;</pre>
+<p>Growth joins to last year's quarter by key, so a missing quarter gives one null instead of shifting every later comparison. <code>_pct</code> columns hold percentages (12.5, not 0.125), and <code>NULLIF</code> turns a zero denominator into null. The other views follow the same pattern; the two valuation views are materialized and refreshed after each price load.</p>
+
+<!-- ================= 7 DASHBOARD ================= -->
+<h2 id="dashboard" class="ser">7. Dashboard and assistant</h2>
+<div class="short ser"><b>In short:</b> applications read from two retrieval databases, each through a read-only login: PostgreSQL <code>serving</code> views for numbers, MongoDB for text.</div>
+<table>
+  <thead><tr><th style="width:22%">Page</th><th>Reads</th><th style="width:28%">Shows</th></tr></thead>
+  <tr><td>Industry overview</td><td>Tables 1 to 4, 7, 8 (quarterly / yearly toggle); <code>ai_money_flow_quarterly</code></td><td>All five companies ranked on each KPI; buyers' spending vs NVIDIA's income</td></tr>
+  <tr><td>Company deep dive</td><td>Tables 1 to 8 for one company</td><td>All 16 KPIs over time</td></tr>
+  <tr><td>Product performance</td><td>Tables 5, 6</td><td>Cloud growth side by side (Azure, Google Cloud, AWS); Meta and NVIDIA on their own</td></tr>
+  <tr><td>Ownership and commentary</td><td><code>institutional_holdings_quarterly</code>; Table 7; MongoDB <code>document_chunks</code></td><td>What the largest funds bought or sold; quotes on AI spending from releases and calls, next to CapEx</td></tr>
+  <tr><td>Assistant (chat)</td><td>PostgreSQL serving views (SQL tool); MongoDB <code>document_chunks</code> and source documents (vector search)</td><td>Answers with figures and cited quotes (Figure 8)</td></tr>
+</table>
+<p>Suggested tool: Streamlit reading the serving views (team to confirm). "Largest funds" means the top 25 managers by total reported portfolio value that quarter (<code>manager_value_rank</code>).</p>
+
+<!-- ================= 8 OPERATIONS ================= -->
+<h2 id="operations" class="ops">8. Operating the pipeline</h2>
+<div class="short ops"><b>In short:</b> cron runs each job on its source's schedule; every run is logged; every number can be traced back to its file; reruns are safe; only pipeline jobs can write.</div>
+
+<h3>8.1 Schedule</h3>
+<table>
+  <thead><tr><th style="width:16%">Job</th><th style="width:22%">Runs</th><th style="width:30%">Watermark (what "new" means)</th><th>After it loads</th></tr></thead>
+  <tr><td>prices</td><td>Daily, after market close</td><td>Latest <code>trade_date</code> in core</td><td>Refresh the two valuation views</td></tr>
+  <tr><td>xbrl, releases</td><td>Daily check; new data about 4 times a year per company</td><td>Latest accession number per company</td><td>Quarterly views update; a yearly row appears once 4 quarters exist; new release chunks in MongoDB</td></tr>
+  <tr><td>transcripts</td><td>After each earnings call</td><td>Latest fiscal quarter per company</td><td>New chunks in MongoDB</td></tr>
+  <tr><td>form13f</td><td>When the SEC posts a new data set</td><td>Last data set file loaded</td><td>Holdings view updates</td></tr>
+</table>
+<p><b>Batch, not streaming.</b> No source publishes continuously: prices change once a day, everything else quarterly. Streaming would add cost and moving parts without fresher data. The first run is a one-time backfill from 2020 (13F: the latest five data sets; transcripts: spread over four days because of the 25-call limit).</p>
+
+<h3>8.2 Tracing any number back to its source</h3>
+<figure>
+<svg viewBox="0 0 700 74" role="img" aria-label="Lineage chain from dashboard number back to S3 file">
+  <defs><marker id="a9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#777"/></marker></defs>
+  <g stroke-width="1.2">
+    <rect x="2" y="8" width="122" height="58" rx="5" fill="#fff" stroke="#1f5fbf"/>
+    <rect x="146" y="8" width="122" height="58" rx="5" fill="#eaf1fb" stroke="#1f5fbf"/>
+    <rect x="290" y="8" width="122" height="58" rx="5" fill="#eef7f1" stroke="#2d7d5a"/>
+    <rect x="434" y="8" width="122" height="58" rx="5" fill="#f4effb" stroke="#7a4fb3"/>
+    <rect x="578" y="8" width="119" height="58" rx="5" fill="#fbf3ea" stroke="#b5651d"/>
+  </g>
+  <g fill="none" stroke="#777" stroke-width="1.2"><path d="M124 37H144" marker-end="url(#a9)"/><path d="M268 37H288" marker-end="url(#a9)"/><path d="M412 37H432" marker-end="url(#a9)"/><path d="M556 37H576" marker-end="url(#a9)"/></g>
+  <g font-size="9" fill="#1a1a1a">
+    <text x="10" y="26" font-weight="700">Dashboard number</text><text x="10" y="41" fill="#555">for example Alphabet</text><text x="10" y="54" fill="#555">Q3 2026 CapEx</text>
+    <text x="154" y="26" font-weight="700">Serving view</text><text x="154" y="41" fill="#555">Table 1 row</text>
+    <text x="298" y="26" font-weight="700">Core fact row</text><text x="298" y="41" fill="#555">accession_no,</text><text x="298" y="54" fill="#555">load_id</text>
+    <text x="442" y="26" font-weight="700">ops.load_log</text><text x="442" y="41" fill="#555">which run, when,</text><text x="442" y="54" fill="#555">s3_path</text>
+    <text x="586" y="26" font-weight="700">Original file</text><text x="586" y="41" fill="#555">in S3, never</text><text x="586" y="54" fill="#555">edited or deleted</text>
+  </g>
+</svg>
+<figcaption>Figure 10. Lineage. Because raw files are never changed, any layer can be rebuilt by rerunning transformation and loading.</figcaption>
+</figure>
+<p><b>Text has the same trail.</b> A chunk's <code>source_id</code> points to its MongoDB document, whose <code>s3_path</code> points to the original file.</p>
+<p><b>Reruns are safe.</b> Every write is an upsert on a natural key (accession number; ticker and date; manager and quarter; chunk <code>_id</code>), so a second run changes no counts. A failed run writes nothing to core, and the next scheduled run starts from the same watermark.</p>
+
+<h3>8.3 Operations tables</h3>
+<table>
+  <thead><tr><th style="width:21%">Table</th><th style="width:50%">Columns</th><th>Purpose</th></tr></thead>
+  <tr><td><code>ops.load_log</code></td><td>load_id bigserial PK, job text, started_at, finished_at timestamptz, status in ('running','success','failed'), rows_in int, rows_loaded int, watermark text, s3_path text, error_message text</td><td>One row per job run; holds each job's watermark and the data sizes reported in Milestone 2</td></tr>
+  <tr><td><code>ops.dq_log</code></td><td>dq_id bigserial PK, load_id FK, check_name text, severity in ('critical','warning','info'), rows_affected int, action in ('stopped load','corrected','excluded','kept as null'), example_key text, logged_at timestamptz</td><td>The record of every quality issue and how it was handled</td></tr>
+  <tr><td><code>ops.xbrl_concept_map</code></td><td>metric_id FK, tag text, priority smallint, company_id smallint null, note text; PK (metric_id, tag)</td><td>Which XBRL tag feeds which metric, in priority order</td></tr>
+</table>
+
+<h3>8.4 Access and secrets</h3>
+<table>
+  <thead><tr><th style="width:24%">Who</th><th>Can do</th></tr></thead>
+  <tr><td><code>pipeline_writer</code> role</td><td>Write <code>raw</code>, <code>staging</code>, <code>core</code>, <code>ops</code> in PostgreSQL; matching MongoDB user with <code>readWrite</code> on <code>stock_intel</code>; used only by the pipeline jobs</td></tr>
+  <tr><td><code>app_reader</code> role</td><td><code>SELECT</code> on <code>serving</code> only in PostgreSQL; matching MongoDB user with the built-in <code>read</code> role on <code>stock_intel</code>; used by the dashboard and the assistant, so neither can change data</td></tr>
+  <tr><td>Credentials</td><td>RDS, Atlas, AWS, Alpha Vantage key and SEC contact live in a shared <code>.env</code> listed in <code>.gitignore</code>; nothing secret is committed to GitHub. The S3 bucket is private.</td></tr>
+  <tr><td>Hosting</td><td>PostgreSQL on AWS RDS, MongoDB Atlas free tier (with Atlas Vector Search), S3; all reachable by the four members</td></tr>
+</table>
+
+<h4>Sources used to check the APIs</h4>
+<ul>
+  <li><a href="https://www.sec.gov/os/accessing-edgar-data">SEC: Accessing EDGAR Data (rate limit, User-Agent)</a></li>
+  <li><a href="https://dev.to/odeeb/the-sec-edgar-api-a-practical-guide-to-free-filing-data-in-python-15b">SEC EDGAR API endpoint guide (companyfacts, submissions, frames)</a></li>
+  <li><a href="https://www.sec.gov/dera/data/form-13f">SEC Form 13F Data Sets</a> and <a href="https://sec.gov/files/form_13f_readme.pdf">readme (files, columns, VALUE units)</a></li>
+  <li><a href="https://alphavantage.co/documentation">Alpha Vantage API documentation</a> and <a href="https://www.macroption.com/alpha-vantage-api-limits/">free-tier limits</a></li>
+  <li><a href="https://www.mongodb.com/products/updates/now-ga-mongodb-search-and-vector-search-for-community-edition/">MongoDB: Search and Vector Search GA for Community Edition</a></li>
+  <li><a href="https://www.mongodb.com/docs/vector-search/indexes/vector-search-type/">MongoDB: vector search index fields</a></li>
+  <li><a href="https://www.mongodb.com/docs/atlas/reference/free-shared-limitations/">MongoDB Atlas: free cluster limits (0.5 GB)</a></li>
+  <li><a href="https://huggingface.co/datasets/Rogersurf/earnings-call-transcripts">Hugging Face: earnings call transcripts dataset (fallback)</a></li>
+</ul>
+
+</body>
+</html>
